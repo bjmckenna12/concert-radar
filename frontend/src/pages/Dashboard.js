@@ -89,7 +89,7 @@ export default function Dashboard() {
   const [scanning, setScanning] = useState(false);
   const [scanMsg, setScanMsg] = useState('');
   const [loading, setLoading] = useState(true);
-  const [shareCard, setShareCard] = useState(null);
+  
 
   useEffect(() => {
     Promise.all([

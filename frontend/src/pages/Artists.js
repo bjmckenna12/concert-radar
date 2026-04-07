@@ -18,7 +18,7 @@ export default function Artists() {
 
   const handleSync = async () => {
     setSyncing(true);
-    try { const d = await api.syncArtists(); const a = await api.listArtists(); setArtists(a?.artists || []); }
+    try { await api.syncArtists(); const a = await api.listArtists(); setArtists(a?.artists || []); }
     finally { setSyncing(false); }
   };
 

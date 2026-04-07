@@ -44,7 +44,7 @@ function ArtistBubble({ artist, rank }) {
 }
 
 export default function Stats() {
-  const { user } = useAuth();
+  
   const [summary, setSummary] = useState(null);
   const [topTracks, setTopTracks] = useState([]);
   const [timeRange, setTimeRange] = useState('medium_term');
