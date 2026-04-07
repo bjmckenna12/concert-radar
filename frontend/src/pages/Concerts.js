@@ -17,8 +17,7 @@ export default function Concerts() {
   const [sortBy, setSortBy] = useState('date');
 
   useEffect(() => {
-    
-    api.listConcerts(200).then(d => setConcerts(d?.concerts || [])), []);
+    api.listConcerts(200).then(d => setConcerts(d?.concerts || [])).finally(() => setLoading(false));
   }, []);
 
   const filtered = concerts
