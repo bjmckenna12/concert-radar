@@ -19,10 +19,6 @@ function ConcertRow({ concert }) {
   const sourceLabel = { website: 'Artist website', news: 'News', twitter: 'Twitter', mailing_list: 'Mailing list' };
   const sourceColor = { website: 'var(--accent)', news: '#4a9eff', twitter: '#1da1f2', mailing_list: 'var(--accent2)' };
 
-  const date = concert.event_date
-    ? new Date(concert.event_date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })
-    : 'Date TBC';
-
   return (
     <div style={{
       display: 'flex', gap: 16, padding: '14px 0',
