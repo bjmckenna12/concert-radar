@@ -2,18 +2,21 @@ import { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import api from '../utils/api';
 
+const MAX_CITIES = 5;
+
 function Toggle({ value, onChange }) {
   return (
     <div onClick={() => onChange(!value)} style={{
-      width: 40, height: 22, borderRadius: 11, flexShrink: 0, cursor: 'pointer',
+      width: 42, height: 24, borderRadius: 0, flexShrink: 0, cursor: 'pointer',
       background: value ? 'var(--accent)' : 'var(--surface2)',
       border: `1px solid ${value ? 'var(--accent)' : 'var(--border2)'}`,
-      position: 'relative', transition: 'all 0.2s'
+      position: 'relative', transition: 'all 0.2s',
+      clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
+      boxShadow: value ? '0 0 10px rgba(0,255,159,0.3)' : 'none',
     }}>
       <div style={{
-        position: 'absolute', width: 16, height: 16, background: '#fff',
-        borderRadius: '50%', top: 2,
-        left: value ? 20 : 2, transition: 'left 0.2s'
+        position: 'absolute', width: 16, height: 16, background: value ? '#050508' : 'var(--muted)',
+        top: 3, left: value ? 22 : 3, transition: 'left 0.2s',
       }} />
     </div>
   );
@@ -23,29 +26,21 @@ function SettingRow({ label, sub, value, onChange }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
       <div>
-        <div style={{ fontSize: 14 }}>{label}</div>
-        {sub && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{sub}</div>}
+        <div style={{ fontSize: 13 }}>{label}</div>
+        {sub && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{sub}</div>}
       </div>
       <Toggle value={value} onChange={onChange} />
     </div>
   );
 }
 
-function SectionLabel({ children }) {
-  return (
-    <div style={{
-      fontFamily: "'DM Mono', monospace", fontSize: 11, letterSpacing: '0.12em',
-      textTransform: 'uppercase', color: 'var(--muted)',
-      display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12
-    }}>
-      {children}
-      <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-    </div>
-  );
-}
-
 export default function Settings() {
   const { user, refreshUser } = useAuth();
+
+  const parseFavCities = () => {
+    try { return JSON.parse(user?.favorite_cities || '[]'); } catch { return []; }
+  };
+
   const [form, setForm] = useState({
     alert_email: user?.alert_email || '',
     location_override: user?.location_override || '',
@@ -56,17 +51,28 @@ export default function Settings() {
     monitor_news: user?.monitor_news ?? true,
     monitor_twitter: user?.monitor_twitter ?? true,
   });
+
+  const [favCities, setFavCities] = useState(parseFavCities());
+  const [newCity, setNewCity] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
 
   const set = (key, val) => setForm(f => ({ ...f, [key]: val }));
 
+  const addCity = () => {
+    const city = newCity.trim();
+    if (!city || favCities.includes(city) || favCities.length >= MAX_CITIES) return;
+    setFavCities([...favCities, city]);
+    setNewCity('');
+  };
+
+  const removeCity = (city) => setFavCities(favCities.filter(c => c !== city));
+
   const handleSave = async () => {
-    setSaving(true);
-    setError('');
+    setSaving(true); setError('');
     try {
-      await api.updateSettings(form);
+      await api.updateSettings({ ...form, favorite_cities: JSON.stringify(favCities) });
       await refreshUser();
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -77,74 +83,51 @@ export default function Settings() {
     }
   };
 
-  const inputStyle = {
-    background: 'var(--surface2)', border: '1px solid var(--border2)',
-    borderRadius: 8, color: 'var(--text)', padding: '9px 12px',
-    fontSize: 14, width: '100%'
-  };
-
   return (
-    <div style={{ animation: 'fadeIn 0.4s ease', maxWidth: 600 }}>
+    <div style={{ animation: 'fadeIn 0.4s ease', maxWidth: 620 }}>
       <div style={{ marginBottom: 28 }}>
-        <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: '1.8rem', marginBottom: 6 }}>Settings</h1>
-        <p style={{ color: 'var(--muted)', fontSize: 14 }}>Configure your alerts and monitoring preferences.</p>
+        <h1 style={{ fontFamily: "'Orbitron', monospace", fontSize: '1.5rem', fontWeight: 900, letterSpacing: '0.08em', marginBottom: 6 }}>
+          SETTINGS
+        </h1>
+        <p style={{ color: 'var(--muted)', fontSize: 13 }}>Configure your alerts and monitoring preferences.</p>
       </div>
 
       {/* Notifications */}
-      <div style={{ marginBottom: 28 }}>
-        <SectionLabel>Notifications</SectionLabel>
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '1.25rem' }}>
-          <div style={{ marginBottom: 12 }}>
-            <label style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600, letterSpacing: '0.05em', display: 'block', marginBottom: 6 }}>
-              Alert email (Gmail)
-            </label>
-            <input
-              type="email" placeholder="your.email@gmail.com"
-              value={form.alert_email} onChange={e => set('alert_email', e.target.value)}
-              style={inputStyle}
-            />
-            <p style={{ fontSize: 11, color: 'var(--muted2)', marginTop: 6 }}>
-              We'll email you when new concerts are detected. Use a Gmail address.
-            </p>
+      <div style={{ marginBottom: 24 }}>
+        <div className="section-label">Notifications</div>
+        <div className="y2k-card" style={{ padding: '1.25rem' }}>
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ fontSize: 11, color: 'var(--accent)', fontFamily: "'Orbitron', monospace", letterSpacing: '0.1em', display: 'block', marginBottom: 8 }}>ALERT EMAIL</label>
+            <input type="email" placeholder="your.email@gmail.com" value={form.alert_email} onChange={e => set('alert_email', e.target.value)} className="y2k-input" />
+            <p style={{ fontSize: 11, color: 'var(--muted2)', marginTop: 6 }}>Use a Gmail address. Alerts send when new concerts are detected.</p>
           </div>
-
           <div>
-            <label style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600, letterSpacing: '0.05em', display: 'block', marginBottom: 6 }}>
-              Scan frequency
-            </label>
-            <select value={form.scan_frequency_hours} onChange={e => set('scan_frequency_hours', Number(e.target.value))} style={inputStyle}>
-              <option value={2}>Every 2 hours (most urgent)</option>
-              <option value={6}>Every 6 hours (recommended)</option>
+            <label style={{ fontSize: 11, color: 'var(--accent)', fontFamily: "'Orbitron', monospace", letterSpacing: '0.1em', display: 'block', marginBottom: 8 }}>SCAN FREQUENCY</label>
+            <select value={form.scan_frequency_hours} onChange={e => set('scan_frequency_hours', Number(e.target.value))} className="y2k-select">
+              <option value={2}>Every 2 hours — most urgent</option>
+              <option value={6}>Every 6 hours — recommended</option>
               <option value={12}>Every 12 hours</option>
-              <option value={24}>Daily</option>
+              <option value={24}>Once daily</option>
+              <option value={84}>Twice a week</option>
+              <option value={168}>Once a week</option>
             </select>
           </div>
         </div>
       </div>
 
       {/* Location */}
-      <div style={{ marginBottom: 28 }}>
-        <SectionLabel>Location</SectionLabel>
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '1.25rem' }}>
-          <div style={{ marginBottom: 12 }}>
-            <label style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600, letterSpacing: '0.05em', display: 'block', marginBottom: 6 }}>
-              Location override
-            </label>
-            <input
-              type="text" placeholder="Leave blank to auto-detect via IP"
-              value={form.location_override} onChange={e => set('location_override', e.target.value)}
-              style={inputStyle}
-            />
-            <p style={{ fontSize: 11, color: 'var(--muted2)', marginTop: 6 }}>
-              Example: "Hobart, Tasmania" or "Melbourne, VIC". Auto-detection updates when you move.
-            </p>
+      <div style={{ marginBottom: 24 }}>
+        <div className="section-label">Location</div>
+        <div className="y2k-card" style={{ padding: '1.25rem' }}>
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ fontSize: 11, color: 'var(--accent)', fontFamily: "'Orbitron', monospace", letterSpacing: '0.1em', display: 'block', marginBottom: 8 }}>HOME LOCATION OVERRIDE</label>
+            <input type="text" placeholder="Auto-detected via IP — override here" value={form.location_override} onChange={e => set('location_override', e.target.value)} className="y2k-input" />
+            <p style={{ fontSize: 11, color: 'var(--muted2)', marginTop: 6 }}>Example: "Hobart, Tasmania". Leave blank to auto-detect. Updates automatically when you move.</p>
           </div>
 
-          <div style={{ marginBottom: 12 }}>
-            <label style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600, letterSpacing: '0.05em', display: 'block', marginBottom: 6 }}>
-              Search radius
-            </label>
-            <select value={form.radius_km} onChange={e => set('radius_km', Number(e.target.value))} style={inputStyle}>
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ fontSize: 11, color: 'var(--accent)', fontFamily: "'Orbitron', monospace", letterSpacing: '0.1em', display: 'block', marginBottom: 8 }}>SEARCH RADIUS</label>
+            <select value={form.radius_km} onChange={e => set('radius_km', Number(e.target.value))} className="y2k-select">
               <option value={50}>50 km</option>
               <option value={80}>80 km (~50 miles)</option>
               <option value={150}>150 km</option>
@@ -152,74 +135,96 @@ export default function Settings() {
             </select>
           </div>
 
-          <SettingRow
-            label="Expand search to Melbourne & Sydney"
-            sub="Auto-enabled when you're detected in Tasmania"
-            value={form.include_nearby_cities}
-            onChange={v => set('include_nearby_cities', v)}
-          />
-        </div>
-      </div>
+          {/* Favourite cities */}
+          <div>
+            <label style={{ fontSize: 11, color: 'var(--accent)', fontFamily: "'Orbitron', monospace", letterSpacing: '0.1em', display: 'block', marginBottom: 8 }}>
+              FAVOURITE CITIES <span style={{ color: 'var(--muted2)' }}>({favCities.length}/{MAX_CITIES})</span>
+            </label>
+            <p style={{ fontSize: 11, color: 'var(--muted2)', marginBottom: 10 }}>Concerts in these cities are always included, regardless of your detected location.</p>
 
-      {/* Monitoring sources */}
-      <div style={{ marginBottom: 28 }}>
-        <SectionLabel>Monitoring sources</SectionLabel>
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '1.25rem' }}>
-          <SettingRow
-            label="Artist official websites"
-            sub="Tour page scraping with change detection"
-            value={form.monitor_websites}
-            onChange={v => set('monitor_websites', v)}
-          />
-          <SettingRow
-            label="Google News RSS"
-            sub="News articles mentioning tour/concert/tickets"
-            value={form.monitor_news}
-            onChange={v => set('monitor_news', v)}
-          />
-          <SettingRow
-            label="Twitter / X"
-            sub="Public artist posts via Nitter (no API key needed)"
-            value={form.monitor_twitter}
-            onChange={v => set('monitor_twitter', v)}
-          />
-        </div>
-      </div>
+            {/* City tags */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+              {favCities.map(city => (
+                <div key={city} style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  background: 'rgba(0,212,255,0.08)', border: '1px solid rgba(0,212,255,0.25)',
+                  padding: '4px 10px', fontSize: 12, color: 'var(--accent4)',
+                  clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))',
+                }}>
+                  <span>◆</span>
+                  {city}
+                  <button onClick={() => removeCity(city)} style={{ background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
+                </div>
+              ))}
+              {favCities.length === 0 && (
+                <span style={{ fontSize: 12, color: 'var(--muted2)' }}>No favourite cities added yet</span>
+              )}
+            </div>
 
-      {/* Share */}
-      <div style={{ marginBottom: 28 }}>
-        <SectionLabel>Share with friends</SectionLabel>
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '1.25rem' }}>
-          <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12, lineHeight: 1.6 }}>
-            Share this link with friends. They connect their own Spotify and get their own personalised alerts.
-          </p>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center', background: 'var(--surface2)', border: '1px solid var(--border2)', borderRadius: 8, padding: '10px 14px' }}>
-            <span style={{ flex: 1, fontSize: 13, fontFamily: "'DM Mono', monospace", color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {window.location.origin}
-            </span>
-            <button onClick={() => navigator.clipboard.writeText(window.location.origin)} style={{
-              background: 'transparent', color: 'var(--accent)', fontSize: 12, fontWeight: 700,
-              fontFamily: "'Syne', sans-serif", border: 'none', cursor: 'pointer', whiteSpace: 'nowrap'
-            }}>Copy link</button>
+            {/* Add city */}
+            {favCities.length < MAX_CITIES && (
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  type="text" placeholder="Add a city (e.g. Boston)"
+                  value={newCity}
+                  onChange={e => setNewCity(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && addCity()}
+                  className="y2k-input" style={{ flex: 1 }}
+                />
+                <button onClick={addCity} className="y2k-btn y2k-btn-outline" style={{ border: '1px solid var(--accent)', whiteSpace: 'nowrap' }}>
+                  + ADD
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div style={{ marginTop: 14 }}>
+            <SettingRow
+              label="Include Melbourne & Sydney when in Tasmania"
+              sub="Auto-enabled when your IP is detected in Tasmania"
+              value={form.include_nearby_cities}
+              onChange={v => set('include_nearby_cities', v)}
+            />
           </div>
         </div>
       </div>
 
-      {/* Save */}
+      {/* Sources */}
+      <div style={{ marginBottom: 24 }}>
+        <div className="section-label">Monitoring sources</div>
+        <div className="y2k-card" style={{ padding: '1.25rem' }}>
+          <SettingRow label="Artist official websites" sub="Tour page scraping with change detection" value={form.monitor_websites} onChange={v => set('monitor_websites', v)} />
+          <SettingRow label="Google News RSS" sub="Articles mentioning tour/concert/tickets" value={form.monitor_news} onChange={v => set('monitor_news', v)} />
+          <SettingRow label="Twitter / X" sub="Public artist posts via Nitter (no API key needed)" value={form.monitor_twitter} onChange={v => set('monitor_twitter', v)} />
+        </div>
+      </div>
+
+      {/* Share */}
+      <div style={{ marginBottom: 24 }}>
+        <div className="section-label">Share with friends</div>
+        <div className="y2k-card" style={{ padding: '1.25rem' }}>
+          <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12, lineHeight: 1.6 }}>
+            Share this link. Friends connect their own Spotify and get their own personalised alerts.
+          </p>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', background: 'var(--surface2)', border: '1px solid var(--border2)', padding: '10px 14px', clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))' }}>
+            <span style={{ flex: 1, fontSize: 12, fontFamily: "'Orbitron', monospace", color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', letterSpacing: '0.04em' }}>
+              {window.location.origin}
+            </span>
+            <button onClick={() => navigator.clipboard.writeText(window.location.origin)} style={{ background: 'transparent', color: 'var(--accent)', fontSize: 11, fontWeight: 700, fontFamily: "'Orbitron', monospace", border: 'none', cursor: 'pointer', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>
+              COPY ↗
+            </button>
+          </div>
+        </div>
+      </div>
+
       {error && (
-        <div style={{ background: 'rgba(231,76,60,0.1)', border: '1px solid rgba(231,76,60,0.3)', borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#e74c3c' }}>
+        <div style={{ background: 'rgba(255,45,120,0.08)', border: '1px solid rgba(255,45,120,0.3)', padding: '10px 14px', marginBottom: 14, fontSize: 13, color: 'var(--accent2)', clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))' }}>
           {error}
         </div>
       )}
 
-      <button onClick={handleSave} disabled={saving} style={{
-        background: saved ? 'var(--accent)' : 'var(--accent)',
-        color: '#000', padding: '12px 28px', borderRadius: 8,
-        fontSize: 15, fontWeight: 700, width: '100%',
-        opacity: saving ? 0.7 : 1,
-        fontFamily: "'Syne', sans-serif"
-      }}>
-        {saving ? 'Saving...' : saved ? '✓ Saved!' : 'Save settings'}
+      <button onClick={handleSave} disabled={saving} className="y2k-btn y2k-btn-green" style={{ width: '100%', padding: '13px 20px', fontSize: 12 }}>
+        {saving ? 'SAVING...' : saved ? '✓ SAVED' : '◈ SAVE SETTINGS'}
       </button>
     </div>
   );

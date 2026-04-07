@@ -3,72 +3,59 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import api from '../utils/api';
 
-function StatCard({ label, value, accent }) {
+function StatCard({ label, value, accent, sub }) {
   return (
-    <div style={{
-      background: 'var(--surface)', border: '1px solid var(--border)',
-      borderRadius: 12, padding: '1.25rem', flex: 1
-    }}>
-      <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>{label}</div>
-      <div style={{ fontSize: 28, fontWeight: 700, color: accent || 'var(--text)' }}>{value}</div>
+    <div className="y2k-card" style={{ padding: '1.25rem', flex: 1 }}>
+      <div style={{ fontFamily: "'Orbitron', monospace", fontSize: 10, color: 'var(--muted)', letterSpacing: '0.12em', marginBottom: 8 }}>{label}</div>
+      <div style={{ fontFamily: "'Orbitron', monospace", fontSize: 26, fontWeight: 900, color: accent || 'var(--text)', lineHeight: 1, textShadow: accent ? `0 0 15px ${accent}60` : 'none' }}>{value}</div>
+      {sub && <div style={{ fontSize: 11, color: 'var(--muted2)', marginTop: 6 }}>{sub}</div>}
     </div>
   );
 }
 
-function ConcertRow({ concert }) {
-  const sourceLabel = { website: 'Artist website', news: 'News', twitter: 'Twitter', mailing_list: 'Mailing list' };
-  const sourceColor = { website: 'var(--accent)', news: '#4a9eff', twitter: '#1da1f2', mailing_list: 'var(--accent2)' };
+function ConcertRow({ concert: c }) {
+  const SOURCE_TAG = { website: 'tag-green', news: 'tag-blue', twitter: 'tag-purple', mailing_list: 'tag-pink' };
+  const SOURCE_LABEL = { website: 'Website', news: 'News', twitter: 'Twitter', mailing_list: 'Mail' };
+  const dateObj = c.event_date ? new Date(c.event_date) : null;
+  const isValid = dateObj && !isNaN(dateObj.getTime());
 
   return (
-    <div style={{
-      display: 'flex', gap: 16, padding: '14px 0',
-      borderBottom: '1px solid var(--border)', alignItems: 'flex-start',
-      animation: 'fadeIn 0.3s ease'
-    }}>
+    <div className="y2k-card concert-card-hover" style={{ padding: '1rem', display: 'flex', gap: 14, alignItems: 'flex-start', marginBottom: 8 }}>
       <div style={{
-        background: 'var(--surface2)', borderRadius: 8, padding: '8px 10px',
-        textAlign: 'center', minWidth: 48, flexShrink: 0
+        background: 'var(--surface2)', minWidth: 50, textAlign: 'center', padding: '8px 6px', flexShrink: 0,
+        border: '1px solid var(--border2)',
+        clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))',
       }}>
-        <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-          {concert.event_date ? new Date(concert.event_date).toLocaleString('en-AU', { month: 'short' }) : '—'}
+        <div style={{ fontFamily: "'Orbitron', monospace", fontSize: 8, color: 'var(--muted)', textTransform: 'uppercase' }}>
+          {isValid ? dateObj.toLocaleString('en-AU', { month: 'short' }) : '—'}
         </div>
-        <div style={{ fontSize: 20, fontWeight: 700, lineHeight: 1 }}>
-          {concert.event_date ? new Date(concert.event_date).getDate() || '?' : '?'}
-        </div>
-      </div>
-      <div style={{ flex: 1 }}>
-        <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 3 }}>{concert.artist_name}</div>
-        <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 6 }}>
-          {[concert.venue, concert.city, concert.country].filter(Boolean).join(' · ') || 'Location TBC'}
-        </div>
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          <span style={{
-            fontSize: 11, padding: '2px 8px', borderRadius: 4,
-            fontFamily: "'DM Mono', monospace",
-            background: `${sourceColor[concert.source] || '#888'}20`,
-            color: sourceColor[concert.source] || 'var(--muted)',
-            border: `1px solid ${sourceColor[concert.source] || '#888'}40`
-          }}>
-            {sourceLabel[concert.source] || concert.source}
-          </span>
-          {!concert.notified && (
-            <span style={{
-              fontSize: 11, padding: '2px 8px', borderRadius: 4,
-              background: 'rgba(255,107,53,0.12)', color: 'var(--accent2)',
-              border: '1px solid rgba(255,107,53,0.25)',
-              fontFamily: "'DM Mono', monospace"
-            }}>NEW</span>
-          )}
+        <div style={{ fontFamily: "'Orbitron', monospace", fontSize: 18, fontWeight: 900, color: 'var(--accent)', lineHeight: 1.2 }}>
+          {isValid ? dateObj.getDate() : '?'}
         </div>
       </div>
-      {concert.source_url && (
-        <a href={concert.source_url} target="_blank" rel="noopener noreferrer"
-          style={{ color: 'var(--muted2)', fontSize: 18, flexShrink: 0, alignSelf: 'center' }}>
-          →
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 3, fontFamily: "'Orbitron', monospace", fontSize: 12, letterSpacing: '0.03em' }}>
+          {c.artist_name}
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>
+          {[c.venue, c.city].filter(Boolean).join(' · ') || 'Location TBC'}
+        </div>
+        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+          <span className={`tag ${SOURCE_TAG[c.source] || 'tag-gray'}`}>{SOURCE_LABEL[c.source] || c.source}</span>
+          {!c.notified && <span className="tag tag-pink">NEW</span>}
+        </div>
+      </div>
+      {c.source_url && (
+        <a href={c.source_url} target="_blank" rel="noopener noreferrer" className="y2k-btn y2k-btn-green" style={{ padding: '5px 10px', fontSize: 9, textDecoration: 'none', flexShrink: 0 }}>
+          Tickets ↗
         </a>
       )}
     </div>
   );
+}
+
+function Spinner() {
+  return <div style={{ width: 14, height: 14, border: '2px solid rgba(0,0,0,0.2)', borderTopColor: '#050508', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />;
 }
 
 export default function Dashboard() {
@@ -87,104 +74,94 @@ export default function Dashboard() {
   }, []);
 
   const handleSync = async () => {
-    setScanning(true);
-    setScanMsg('Syncing Spotify artists...');
+    setScanning(true); setScanMsg('Syncing Spotify artists...');
     try {
       const res = await api.syncArtists();
-      setScanMsg(`Synced ${res.synced} artists`);
+      setScanMsg(`Synced ${res.synced} artists ✓`);
       const d = await api.listArtists();
       setArtists(d || { total: 0 });
       refreshUser();
-    } catch (e) {
-      setScanMsg('Sync failed: ' + e.message);
-    } finally {
-      setScanning(false);
-    }
+    } catch (e) { setScanMsg('Sync failed: ' + e.message); }
+    finally { setScanning(false); }
   };
 
   const handleScan = async () => {
-    setScanning(true);
-    setScanMsg('Scan started — this may take a few minutes...');
+    setScanning(true); setScanMsg('Scan initiated — checking all sources...');
     try {
       await api.triggerScan();
-      setScanMsg('Scan running in background. Check back soon!');
+      setScanMsg('Scan running in background. Results appear in ~5 mins.');
       setTimeout(async () => {
         const d = await api.listConcerts(10);
         setConcerts(d?.concerts || []);
         setScanMsg('');
       }, 15000);
-    } catch (e) {
-      setScanMsg('Scan failed: ' + e.message);
-      setScanning(false);
-    }
+    } catch (e) { setScanMsg('Scan failed: ' + e.message); setScanning(false); }
   };
 
   const needsSetup = !user?.alert_email;
+  const newCount = concerts.filter(c => !c.notified).length;
 
   return (
     <div style={{ animation: 'fadeIn 0.4s ease' }}>
+      {/* Header */}
       <div style={{ marginBottom: 28 }}>
-        <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: '2rem', marginBottom: 6 }}>
-          Hey {user?.display_name?.split(' ')[0]} 👋
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+          <div style={{ width: 8, height: 8, background: 'var(--accent)', clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)', animation: 'spinDiamond 3s linear infinite' }} />
+          <span style={{ fontFamily: "'Orbitron', monospace", fontSize: 10, color: 'var(--muted)', letterSpacing: '0.15em' }}>SYSTEM ONLINE</span>
+        </div>
+        <h1 style={{ fontFamily: "'Orbitron', monospace", fontSize: 'clamp(1.3rem, 4vw, 2rem)', fontWeight: 900, letterSpacing: '0.05em', marginBottom: 4 }}>
+          WELCOME BACK, {user?.display_name?.toUpperCase()?.split(' ')[0]}
         </h1>
-        <p style={{ color: 'var(--muted)', fontSize: 14 }}>
-          Here's what Concert Radar has found for you.
-        </p>
+        <p style={{ color: 'var(--muted)', fontSize: 13 }}>Your concert radar is active.</p>
       </div>
 
+      {/* Setup warning */}
       {needsSetup && (
         <div style={{
-          background: 'rgba(255,107,53,0.08)', border: '1px solid rgba(255,107,53,0.25)',
-          borderRadius: 12, padding: '14px 18px', marginBottom: 24,
+          background: 'rgba(255,45,120,0.06)', border: '1px solid rgba(255,45,120,0.3)',
+          padding: '14px 18px', marginBottom: 24,
+          clipPath: 'polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))',
           display: 'flex', alignItems: 'center', gap: 12
         }}>
-          <span style={{ fontSize: 20 }}>⚠️</span>
+          <div style={{ fontFamily: "'VT323', monospace", fontSize: 28, color: 'var(--accent2)' }}>!</div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--accent2)', marginBottom: 2 }}>
-              Set up your alert email
+            <div style={{ fontFamily: "'Orbitron', monospace", fontSize: 11, fontWeight: 700, color: 'var(--accent2)', marginBottom: 2, letterSpacing: '0.05em' }}>
+              ALERT EMAIL NOT SET
             </div>
-            <div style={{ fontSize: 13, color: 'var(--muted)' }}>
-              Add your Gmail in Settings to receive concert alerts.
-            </div>
+            <div style={{ fontSize: 12, color: 'var(--muted)' }}>Add your Gmail in Settings to receive concert alerts.</div>
           </div>
-          <Link to="/settings" style={{
-            background: 'var(--accent2)', color: '#fff', padding: '7px 14px',
-            borderRadius: 7, fontSize: 13, fontWeight: 600, textDecoration: 'none'
-          }}>Go to Settings →</Link>
+          <Link to="/settings" className="y2k-btn y2k-btn-pink" style={{ textDecoration: 'none', padding: '7px 14px', fontSize: 10 }}>
+            SETTINGS →
+          </Link>
         </div>
       )}
 
       {/* Stats */}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 24, flexWrap: 'wrap' }}>
         <StatCard label="Artists monitored" value={loading ? '—' : artists.total} accent="var(--accent)" />
-        <StatCard label="Concerts found" value={loading ? '—' : concerts.length} />
-        <StatCard label="Location" value={user?.location_override || 'Auto-detected'} />
+        <StatCard label="Concerts found" value={loading ? '—' : concerts.length} accent="var(--accent4)" />
+        <StatCard label="New alerts" value={loading ? '—' : newCount} accent={newCount > 0 ? 'var(--accent2)' : 'var(--muted)'} />
       </div>
 
       {/* Actions */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 28, flexWrap: 'wrap' }}>
-        <button onClick={handleSync} disabled={scanning} style={{
-          background: 'var(--surface)', border: '1px solid var(--border2)',
-          color: 'var(--text)', padding: '10px 18px', borderRadius: 8,
-          fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8
-        }}>
-          {scanning ? <Spinner /> : '🎵'} Sync Spotify artists
+      <div style={{ display: 'flex', gap: 10, marginBottom: scanMsg ? 16 : 28, flexWrap: 'wrap' }}>
+        <button onClick={handleSync} disabled={scanning} className="y2k-btn y2k-btn-outline" style={{ border: '1px solid var(--accent)' }}>
+          {scanning ? <Spinner /> : '◈'} SYNC ARTISTS
         </button>
-        <button onClick={handleScan} disabled={scanning} style={{
-          background: 'var(--accent)', color: '#000',
-          padding: '10px 18px', borderRadius: 8,
-          fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8
-        }}>
-          {scanning ? <Spinner dark /> : '📡'} Scan for new shows
+        <button onClick={handleScan} disabled={scanning} className="y2k-btn y2k-btn-green">
+          {scanning ? <Spinner /> : '◎'} SCAN FOR SHOWS
         </button>
       </div>
 
       {scanMsg && (
         <div style={{
-          background: 'var(--surface)', border: '1px solid var(--border)',
-          borderRadius: 8, padding: '10px 14px', marginBottom: 20,
-          fontSize: 13, color: 'var(--muted)', fontFamily: "'DM Mono', monospace"
+          background: 'var(--surface2)', border: '1px solid var(--border2)',
+          padding: '10px 14px', marginBottom: 24, fontSize: 12,
+          color: 'var(--accent)', fontFamily: "'Orbitron', monospace", letterSpacing: '0.06em',
+          clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
+          display: 'flex', alignItems: 'center', gap: 8
         }}>
+          <div style={{ width: 6, height: 6, background: 'var(--accent)', borderRadius: '50%', animation: 'pulse 1s infinite' }} />
           {scanMsg}
         </div>
       )}
@@ -192,27 +169,20 @@ export default function Dashboard() {
       {/* Recent concerts */}
       <div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <div style={{
-            fontFamily: "'DM Mono', monospace", fontSize: 11, letterSpacing: '0.12em',
-            textTransform: 'uppercase', color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 8
-          }}>
-            Recent alerts
-            <div style={{ flex: 1, height: 1, background: 'var(--border)', width: 60 }} />
-          </div>
-          <Link to="/concerts" style={{ fontSize: 13, color: 'var(--accent)' }}>View all →</Link>
+          <div className="section-label" style={{ marginBottom: 0, flex: 1 }}>Recent alerts</div>
+          <Link to="/concerts" style={{ fontSize: 11, color: 'var(--accent)', fontFamily: "'Orbitron', monospace", letterSpacing: '0.08em', marginLeft: 16 }}>
+            VIEW ALL →
+          </Link>
         </div>
 
         {loading ? (
-          <div style={{ color: 'var(--muted)', fontSize: 14, padding: '2rem 0' }}>Loading...</div>
+          <div style={{ color: 'var(--muted)', fontSize: 12, padding: '2rem 0', fontFamily: "'Orbitron', monospace", letterSpacing: '0.1em' }}>SCANNING DATABASE...</div>
         ) : concerts.length === 0 ? (
-          <div style={{
-            background: 'var(--surface)', border: '1px solid var(--border)',
-            borderRadius: 12, padding: '2.5rem', textAlign: 'center'
-          }}>
-            <div style={{ fontSize: 32, marginBottom: 12 }}>🎸</div>
-            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 8 }}>No concerts found yet</div>
+          <div className="y2k-card" style={{ padding: '2.5rem', textAlign: 'center' }}>
+            <div style={{ fontFamily: "'VT323', monospace", fontSize: 56, color: 'var(--muted2)', marginBottom: 12, lineHeight: 1 }}>◎</div>
+            <div style={{ fontFamily: "'Orbitron', monospace", fontSize: 13, marginBottom: 8 }}>NO SIGNALS DETECTED</div>
             <div style={{ fontSize: 13, color: 'var(--muted)' }}>
-              Hit "Scan for new shows" to check your artists now, or wait for the automatic scan.
+              Hit "Scan for shows" to check your artists now.
             </div>
           </div>
         ) : (
@@ -220,15 +190,5 @@ export default function Dashboard() {
         )}
       </div>
     </div>
-  );
-}
-
-function Spinner({ dark }) {
-  return (
-    <div style={{
-      width: 14, height: 14, border: `2px solid ${dark ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.2)'}`,
-      borderTopColor: dark ? '#000' : '#fff',
-      borderRadius: '50%', animation: 'spin 0.7s linear infinite'
-    }} />
   );
 }

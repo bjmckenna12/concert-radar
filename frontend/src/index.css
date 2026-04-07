@@ -1,29 +1,52 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Space+Grotesk:wght@300;400;500;600;700&family=VT323&display=swap');
+
 :root {
-  --bg: #0a0a0f;
-  --surface: #13131a;
-  --surface2: #1c1c26;
-  --border: rgba(255,255,255,0.08);
-  --border2: rgba(255,255,255,0.14);
-  --accent: #1DB954;
-  --accent2: #ff6b35;
-  --text: #f0f0f0;
-  --muted: #888;
-  --muted2: #555;
-  --danger: #e74c3c;
-  --radius: 12px;
+  --bg: #050508;
+  --surface: #0d0d14;
+  --surface2: #14141f;
+  --surface3: #1a1a2e;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.13);
+  --accent: #00ff9f;
+  --accent2: #ff2d78;
+  --accent3: #7b2fff;
+  --accent4: #00d4ff;
+  --text: #f0f0ff;
+  --muted: #7a7a9a;
+  --muted2: #3a3a5a;
+  --danger: #ff2d78;
+  --radius: 4px;
+  --glow-green: 0 0 20px rgba(0,255,159,0.3);
+  --glow-pink: 0 0 20px rgba(255,45,120,0.3);
+  --glow-blue: 0 0 20px rgba(0,212,255,0.3);
 }
 
 html, body {
   background: var(--bg);
   color: var(--text);
-  font-family: 'Syne', sans-serif;
+  font-family: 'Space Grotesk', sans-serif;
   font-size: 16px;
   line-height: 1.5;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
 }
+
+/* Y2K grid background */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0,255,159,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,255,159,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+#root { position: relative; z-index: 1; }
 
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
@@ -32,14 +55,14 @@ h1, h2, h3 { line-height: 1.2; }
 
 button {
   cursor: pointer;
-  font-family: 'Syne', sans-serif;
+  font-family: 'Space Grotesk', sans-serif;
   border: none;
   outline: none;
   transition: all 0.2s;
 }
 
 input, select, textarea {
-  font-family: 'Syne', sans-serif;
+  font-family: 'Space Grotesk', sans-serif;
   font-size: 14px;
   outline: none;
   transition: border-color 0.2s;
@@ -48,4 +71,13 @@ input, select, textarea {
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
-::-webkit-scrollbar-thumb { background: var(--muted2); border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: var(--accent3); border-radius: 0; }
+
+/* Leaflet map overrides */
+.leaflet-container { background: var(--surface) !important; font-family: 'Space Grotesk', sans-serif !important; }
+.leaflet-tile { filter: invert(1) hue-rotate(180deg) saturate(0.4) brightness(0.7); }
+.leaflet-popup-content-wrapper { background: var(--surface2) !important; border: 1px solid var(--accent) !important; border-radius: 4px !important; box-shadow: var(--glow-green) !important; color: var(--text) !important; }
+.leaflet-popup-tip { background: var(--accent) !important; }
+.leaflet-popup-content { color: var(--text) !important; font-family: 'Space Grotesk', sans-serif !important; }
+.leaflet-control-zoom a { background: var(--surface2) !important; color: var(--accent) !important; border-color: var(--border2) !important; }
+.leaflet-control-attribution { background: rgba(5,5,8,0.8) !important; color: var(--muted) !important; font-size: 10px !important; }
