@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import api from '../utils/api';
-import { useAuth } from '../hooks/useAuth';
 
 const TIME_RANGES = [
   { val: 'short_term', label: 'Last 4 weeks' },
