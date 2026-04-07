@@ -5,6 +5,7 @@ import logging
 import feedparser
 from bs4 import BeautifulSoup
 from urllib.parse import quote_plus
+import asyncio
 
 from config import CONCERT_KEYWORDS, LOCATION_KEYWORDS_AU
 
@@ -14,31 +15,44 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 }
 
+# Known artist website patterns — avoids needing Google search
+TOUR_PAGE_PATTERNS = [
+    "https://www.{slug}.com/tour",
+    "https://www.{slug}.com/shows",
+    "https://www.{slug}.com/live",
+    "https://www.{slug}.com/dates",
+    "https://{slug}.com/tour",
+    "https://{slug}.com/shows",
+]
 
 async def find_tour_page_url(artist_name: str) -> str | None:
-    """Search Google for the artist's official tour/shows page."""
-    query = f'{artist_name} official tour dates site'
-    search_url = f"https://www.google.com/search?q={quote_plus(query)}"
+    """
+    Try known URL patterns for artist tour pages.
+    Avoids Google search entirely to prevent rate limiting.
+    """
+    slug = artist_name.lower().replace(" ", "").replace("&", "and").replace("'", "").replace(".", "")
+    slug_hyphen = artist_name.lower().replace(" ", "-").replace("&", "and").replace("'", "").replace(".", "")
 
-    try:
-        async with httpx.AsyncClient(headers=HEADERS, timeout=10.0, follow_redirects=True) as client:
-            resp = await client.get(search_url)
-            if resp.status_code != 200:
-                return None
+    candidates = [
+        f"https://www.{slug}.com/tour",
+        f"https://www.{slug}.com/shows",
+        f"https://{slug}.com/tour",
+        f"https://{slug}.com/shows",
+        f"https://www.{slug_hyphen}.com/tour",
+        f"https://www.{slug_hyphen}.com/shows",
+        f"https://{slug_hyphen}.com/tour",
+    ]
 
-            soup = BeautifulSoup(resp.text, "html.parser")
-            for link in soup.find_all("a", href=True):
-                href = link["href"]
-                # Extract actual URL from Google redirect
-                if "/url?q=" in href:
-                    actual = href.split("/url?q=")[1].split("&")[0]
-                    # Look for tour/shows pages on likely official domains
-                    artist_slug = artist_name.lower().replace(" ", "")
-                    if any(kw in actual.lower() for kw in ["tour", "shows", "live", "tickets", "dates"]):
-                        if artist_slug[:5] in actual.lower() or "official" in actual.lower():
-                            return actual
-    except Exception as e:
-        logger.warning(f"Tour page search failed for {artist_name}: {e}")
+    async with httpx.AsyncClient(headers=HEADERS, timeout=8.0, follow_redirects=True) as client:
+        for url in candidates:
+            try:
+                resp = await client.head(url)
+                if resp.status_code in (200, 301, 302):
+                    logger.info(f"Found tour page for {artist_name}: {url}")
+                    return url
+            except Exception:
+                continue
+            await asyncio.sleep(0.2)
 
     return None
 
@@ -56,7 +70,6 @@ async def scrape_tour_page(url: str) -> tuple[str, str]:
 
             soup = BeautifulSoup(resp.text, "html.parser")
 
-            # Remove script/style noise
             for tag in soup(["script", "style", "nav", "footer", "header"]):
                 tag.decompose()
 
@@ -72,17 +85,13 @@ async def scrape_tour_page(url: str) -> tuple[str, str]:
 def extract_concerts_from_text(text: str, artist_name: str, locations: list[str]) -> list[dict]:
     """
     Parse scraped text for concert mentions near given locations.
-    Returns list of raw concert dicts.
     """
     concerts = []
     text_lower = text.lower()
 
-    # Check if page has concert-related content
     if not any(kw in text_lower for kw in CONCERT_KEYWORDS):
         return []
 
-    # Split into chunks around date-like patterns
-    # Look for lines/sentences containing a location + date-like content
     date_pattern = re.compile(
         r'\b(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}|\d{4}[\/\-\.]\d{2}[\/\-\.]\d{2}|'
         r'(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{1,2}(?:st|nd|rd|th)?(?:,?\s+\d{4})?)',
@@ -114,16 +123,19 @@ def extract_concerts_from_text(text: str, artist_name: str, locations: list[str]
 async def search_google_news(artist_name: str, locations: list[str]) -> list[dict]:
     """
     Search Google News RSS for concert announcements.
-    Returns list of raw result dicts.
+    RSS feed is not rate limited like Google Search.
     """
     results = []
-    location_str = " OR ".join(f'"{loc}"' for loc in locations) if locations else "Australia"
+    location_str = " OR ".join(f'"{loc}"' for loc in locations[:4]) if locations else "Australia"
     query = f'"{artist_name}" (tour OR concert OR tickets OR "on sale") ({location_str})'
     rss_url = f"https://news.google.com/rss/search?q={quote_plus(query)}&hl=en-AU&gl=AU&ceid=AU:en"
 
     try:
-        feed = feedparser.parse(rss_url)
-        for entry in feed.entries[:10]:
+        # feedparser is synchronous — run in thread to avoid blocking
+        loop = asyncio.get_event_loop()
+        feed = await loop.run_in_executor(None, lambda: feedparser.parse(rss_url))
+
+        for entry in feed.entries[:8]:
             title = entry.get("title", "")
             summary = entry.get("summary", "")
             link = entry.get("link", "")
@@ -149,7 +161,7 @@ async def search_google_news(artist_name: str, locations: list[str]) -> list[dic
 
 async def search_twitter_public(artist_name: str) -> list[dict]:
     """
-    Search for public tweets about artist tours via Nitter (no API key needed).
+    Search for public tweets about artist tours via Nitter.
     Falls back gracefully if Nitter is unavailable.
     """
     results = []
