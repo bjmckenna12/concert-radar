@@ -1,9 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../utils/api';
 
-const SOURCE_LABELS = { website: 'Website', news: 'News', twitter: 'Twitter', mailing_list: 'Mail' };
-const SOURCE_TAG = { website: 'tag-green', news: 'tag-blue', twitter: 'tag-purple', mailing_list: 'tag-pink' };
-
 export default function Concerts() {
   const [concerts, setConcerts] = useState([]);
   const [loading, setLoading] = useState(true);

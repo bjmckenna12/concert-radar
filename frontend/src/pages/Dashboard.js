@@ -34,7 +34,7 @@ function ConcertRow({ concert: c }) {
         </div>
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 3, fontFamily: "'Orbitron', monospace", fontSize: 12, letterSpacing: '0.03em' }}>
+        <div style={{ fontWeight: 700, marginBottom: 3, fontFamily: "'Orbitron', monospace", fontSize: 12, letterSpacing: '0.03em' }}>
           {c.artist_name}
         </div>
         <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>
