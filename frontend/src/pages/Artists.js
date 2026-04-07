@@ -18,91 +18,57 @@ export default function Artists() {
 
   const handleSync = async () => {
     setSyncing(true);
-    try {
-      await api.syncArtists();
-      const d = await api.listArtists();
-      setArtists(d?.artists || []);
-    } finally {
-      setSyncing(false);
-    }
+    try { const d = await api.syncArtists(); const a = await api.listArtists(); setArtists(a?.artists || []); }
+    finally { setSyncing(false); }
   };
 
-  const filtered = artists.filter(a =>
-    !search || a.artist_name?.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const getArtistConcerts = (artistId) =>
-    concerts.filter(c => c.artist_id === artistId);
-
+  const filtered = artists.filter(a => !search || a.artist_name?.toLowerCase().includes(search.toLowerCase()));
+  const getArtistConcerts = (id) => concerts.filter(c => c.artist_id === id);
   const selectedArtist = selected ? artists.find(a => a.spotify_artist_id === selected) : null;
   const selectedConcerts = selected ? getArtistConcerts(selected) : [];
 
   return (
     <div style={{ animation: 'fadeIn 0.4s ease' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 style={{ fontFamily: "'Orbitron', monospace", fontSize: '1.5rem', fontWeight: 900, letterSpacing: '0.08em', marginBottom: 6 }}>
-            FOLLOWED ARTISTS
-          </h1>
-          <p style={{ color: 'var(--muted)', fontSize: 13 }}>
-            {artists.length} artists being monitored
-          </p>
+          <h1 style={{ fontFamily: "'Orbitron', monospace", fontSize: '1.5rem', fontWeight: 900, letterSpacing: '0.08em', marginBottom: 6 }}>ARTISTS 🎵</h1>
+          <p style={{ color: 'var(--text2)', fontSize: 13 }}>{artists.length} artists being monitored</p>
         </div>
-        <button onClick={handleSync} disabled={syncing} className="y2k-btn y2k-btn-outline" style={{ border: '1px solid var(--accent)' }}>
-          {syncing ? 'SYNCING...' : '◈ SYNC SPOTIFY'}
+        <button onClick={handleSync} disabled={syncing} className="pill-btn pill-btn-outline" style={{ border: '1.5px solid var(--accent)' }}>
+          {syncing ? '...' : '🔄'} Sync Spotify
         </button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: selected ? '1fr 380px' : '1fr', gap: 16 }}>
-        {/* Artist grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: selected ? '1fr 360px' : '1fr', gap: 16 }}>
         <div>
-          <input
-            type="text" placeholder="Search artists..."
-            value={search} onChange={e => setSearch(e.target.value)}
-            className="y2k-input" style={{ marginBottom: 16 }}
-          />
+          <input type="text" placeholder="Search artists..." value={search} onChange={e => setSearch(e.target.value)} className="input-field" style={{ marginBottom: 16, borderRadius: 50, padding: '10px 18px' }} />
 
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '3rem', fontFamily: "'Orbitron', monospace", fontSize: 11, color: 'var(--accent)', letterSpacing: '0.1em' }}>LOADING...</div>
+            <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--muted)' }}>Loading artists...</div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 8, maxHeight: 560, overflowY: 'auto', paddingRight: 4 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 8, maxHeight: 560, overflowY: 'auto', paddingRight: 4 }}>
               {filtered.map(a => {
-                const artistConcerts = getArtistConcerts(a.spotify_artist_id);
+                const ac = getArtistConcerts(a.spotify_artist_id);
                 const isSelected = selected === a.spotify_artist_id;
+                const hue = (a.artist_name?.charCodeAt(0) || 0) * 37 % 360;
                 return (
-                  <div
-                    key={a.spotify_artist_id}
-                    onClick={() => setSelected(isSelected ? null : a.spotify_artist_id)}
-                    style={{
-                      background: isSelected ? 'rgba(0,255,159,0.08)' : 'var(--surface)',
-                      border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--border2)'}`,
-                      padding: '14px 12px', cursor: 'pointer',
-                      clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))',
-                      transition: 'all 0.15s', position: 'relative',
-                      boxShadow: isSelected ? '0 0 15px rgba(0,255,159,0.2)' : 'none',
-                    }}
+                  <div key={a.spotify_artist_id} onClick={() => setSelected(isSelected ? null : a.spotify_artist_id)} style={{
+                    background: isSelected ? `hsl(${hue}, 60%, 92%)` : 'white',
+                    border: `1.5px solid ${isSelected ? `hsl(${hue}, 60%, 65%)` : 'var(--border)'}`,
+                    borderRadius: 16, padding: '14px 12px', cursor: 'pointer',
+                    transition: 'all 0.15s', boxShadow: isSelected ? `0 4px 16px hsla(${hue}, 60%, 50%, 0.2)` : 'var(--shadow)',
+                  }}
+                    onMouseOver={e => !isSelected && (e.currentTarget.style.transform = 'translateY(-2px)')}
+                    onMouseOut={e => e.currentTarget.style.transform = 'none'}
                   >
-                    {/* Avatar */}
-                    <div style={{
-                      width: 36, height: 36, borderRadius: '50%', marginBottom: 10,
-                      background: `hsl(${(a.artist_name?.charCodeAt(0) || 0) * 37 % 360}, 60%, 25%)`,
-                      border: `1px solid hsl(${(a.artist_name?.charCodeAt(0) || 0) * 37 % 360}, 60%, 40%)`,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontFamily: "'Orbitron', monospace", fontSize: 13, fontWeight: 700,
-                      color: `hsl(${(a.artist_name?.charCodeAt(0) || 0) * 37 % 360}, 80%, 70%)`,
-                    }}>
+                    <div style={{ width: 38, height: 38, borderRadius: '50%', marginBottom: 10, background: `hsl(${hue}, 60%, 88%)`, border: `2px solid hsl(${hue}, 60%, 65%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 16, color: `hsl(${hue}, 60%, 35%)` }}>
                       {(a.artist_name || '?')[0].toUpperCase()}
                     </div>
-                    <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, lineHeight: 1.3, wordBreak: 'break-word' }}>
-                      {a.artist_name}
-                    </div>
-                    {artistConcerts.length > 0 && (
-                      <span className="tag tag-green" style={{ fontSize: 9 }}>
-                        {artistConcerts.length} show{artistConcerts.length !== 1 ? 's' : ''}
+                    <div style={{ fontSize: 12, fontWeight: 600, lineHeight: 1.3, wordBreak: 'break-word', marginBottom: 6 }}>{a.artist_name}</div>
+                    {ac.length > 0 && (
+                      <span style={{ background: 'var(--mint-light)', color: '#065f46', padding: '2px 8px', borderRadius: 50, fontSize: 11, fontWeight: 700, border: '1px solid var(--mint)' }}>
+                        {ac.length} show{ac.length !== 1 ? 's' : ''}
                       </span>
-                    )}
-                    {isSelected && (
-                      <div style={{ position: 'absolute', top: 8, right: 8, width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)', animation: 'pulse 1s infinite' }} />
                     )}
                   </div>
                 );
@@ -111,68 +77,41 @@ export default function Artists() {
           )}
         </div>
 
-        {/* Artist detail panel */}
         {selected && selectedArtist && (
           <div style={{ animation: 'fadeIn 0.3s ease' }}>
-            <div className="y2k-card" style={{ padding: '1.5rem', marginBottom: 12 }}>
+            <div className="card" style={{ padding: '1.5rem', marginBottom: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
-                <div style={{
-                  width: 52, height: 52, borderRadius: '50%',
-                  background: `hsl(${(selectedArtist.artist_name?.charCodeAt(0) || 0) * 37 % 360}, 60%, 20%)`,
-                  border: `2px solid hsl(${(selectedArtist.artist_name?.charCodeAt(0) || 0) * 37 % 360}, 60%, 40%)`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontFamily: "'Orbitron', monospace", fontSize: 18, fontWeight: 700,
-                  color: `hsl(${(selectedArtist.artist_name?.charCodeAt(0) || 0) * 37 % 360}, 80%, 70%)`,
-                  boxShadow: `0 0 20px hsl(${(selectedArtist.artist_name?.charCodeAt(0) || 0) * 37 % 360}, 60%, 25%)`,
-                }}>
-                  {(selectedArtist.artist_name || '?')[0].toUpperCase()}
-                </div>
-                <div>
-                  <div style={{ fontFamily: "'Orbitron', monospace", fontSize: 13, fontWeight: 700, marginBottom: 4 }}>
-                    {selectedArtist.artist_name?.toUpperCase()}
+                {(() => { const hue = (selectedArtist.artist_name?.charCodeAt(0) || 0) * 37 % 360; return (
+                  <div style={{ width: 52, height: 52, borderRadius: '50%', background: `hsl(${hue}, 60%, 88%)`, border: `2px solid hsl(${hue}, 60%, 60%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 20, color: `hsl(${hue}, 60%, 35%)`, boxShadow: `0 4px 16px hsla(${hue}, 60%, 50%, 0.25)` }}>
+                    {(selectedArtist.artist_name || '?')[0].toUpperCase()}
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                    {selectedConcerts.length} concert{selectedConcerts.length !== 1 ? 's' : ''} detected
-                  </div>
+                ); })()}
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 3 }}>{selectedArtist.artist_name}</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>{selectedConcerts.length} concert{selectedConcerts.length !== 1 ? 's' : ''} detected</div>
                 </div>
-                <button onClick={() => setSelected(null)} style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 18 }}>✕</button>
+                <button onClick={() => setSelected(null)} style={{ background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 20 }}>×</button>
               </div>
-
-              <a
-                href={`https://open.spotify.com/artist/${selectedArtist.spotify_artist_id}`}
-                target="_blank" rel="noopener noreferrer"
-                className="y2k-btn y2k-btn-green"
-                style={{ textDecoration: 'none', width: '100%', marginBottom: 0 }}
-              >
-                ◈ VIEW ON SPOTIFY
+              <a href={`https://open.spotify.com/artist/${selectedArtist.spotify_artist_id}`} target="_blank" rel="noopener noreferrer" className="pill-btn pill-btn-purple" style={{ textDecoration: 'none', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                🎵 Open in Spotify
               </a>
             </div>
 
-            <div className="section-label">Detected concerts</div>
+            <div className="section-label">Concerts</div>
             {selectedConcerts.length === 0 ? (
-              <div className="y2k-card" style={{ padding: '1.5rem', textAlign: 'center' }}>
-                <div style={{ fontFamily: "'VT323', monospace", fontSize: 32, color: 'var(--muted2)', marginBottom: 8 }}>◎</div>
-                <div style={{ fontSize: 12, color: 'var(--muted)' }}>No concerts detected yet for this artist.</div>
+              <div className="card" style={{ padding: '1.5rem', textAlign: 'center' }}>
+                <div style={{ fontSize: 13, color: 'var(--muted)' }}>No concerts detected for this artist yet.</div>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {selectedConcerts.map(c => (
-                  <div key={c.id} className="y2k-card" style={{ padding: '1rem' }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
-                      {[c.venue, c.city].filter(Boolean).join(' · ') || 'Location TBC'}
-                    </div>
-                    <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>
+                  <div key={c.id} className="card" style={{ padding: '12px 14px' }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>{[c.venue, c.city].filter(Boolean).join(' · ') || 'Location TBC'}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 8 }}>
                       {c.event_date ? new Date(c.event_date).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' }) : 'Date TBC'}
                     </div>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      <span className={`tag ${c.source === 'website' ? 'tag-green' : c.source === 'news' ? 'tag-blue' : 'tag-purple'}`}>
-                        {c.source}
-                      </span>
-                      {c.source_url && (
-                        <a href={c.source_url} target="_blank" rel="noopener noreferrer" className="tag tag-green" style={{ textDecoration: 'none' }}>
-                          Tickets ↗
-                        </a>
-                      )}
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      {c.source_url && <a href={c.source_url} target="_blank" rel="noopener noreferrer" className="pill-btn pill-btn-purple" style={{ padding: '5px 12px', fontSize: 11, textDecoration: 'none' }}>🎟️ Tickets ↗</a>}
                     </div>
                   </div>
                 ))}

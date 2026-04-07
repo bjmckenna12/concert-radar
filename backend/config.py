@@ -7,7 +7,7 @@ load_dotenv()
 SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID", "")
 SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET", "")
 SPOTIFY_REDIRECT_URI = os.getenv("SPOTIFY_REDIRECT_URI", "http://localhost:8000/auth/callback")
-SPOTIFY_SCOPES = "user-follow-read user-read-email user-read-private"
+SPOTIFY_SCOPES = "user-follow-read user-read-email user-read-private user-top-read"
 
 # App
 SECRET_KEY = os.getenv("SECRET_KEY", "change-me-in-production-use-random-string")

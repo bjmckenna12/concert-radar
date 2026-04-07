@@ -25,6 +25,9 @@ async def init_db():
                 monitor_news INTEGER DEFAULT 1,
                 monitor_twitter INTEGER DEFAULT 1,
                 monitor_mailing_lists INTEGER DEFAULT 0,
+                favorite_cities TEXT DEFAULT '[]',
+                friends TEXT DEFAULT '[]',
+                profile_public INTEGER DEFAULT 1,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
         """)
@@ -55,9 +58,20 @@ async def init_db():
                 source TEXT,
                 source_url TEXT,
                 raw_text TEXT,
+                concert_type TEXT DEFAULT 'unknown',
                 notified INTEGER DEFAULT 0,
                 detected_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(user_id, artist_id, venue, event_date)
+            )
+        """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS friends (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                friend_id TEXT NOT NULL,
+                status TEXT DEFAULT 'pending',
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, friend_id)
             )
         """)
         await db.execute("""
@@ -71,6 +85,22 @@ async def init_db():
                 errors TEXT
             )
         """)
+
+        # Migrate existing tables — add new columns if missing
+        for col, definition in [
+            ("concert_type", "TEXT DEFAULT 'unknown'"),
+            ("favorite_cities", "TEXT DEFAULT '[]'"),
+            ("friends", "TEXT DEFAULT '[]'"),
+            ("profile_public", "INTEGER DEFAULT 1"),
+        ]:
+            try:
+                if col in ["concert_type"]:
+                    await db.execute(f"ALTER TABLE detected_concerts ADD COLUMN {col} {definition}")
+                else:
+                    await db.execute(f"ALTER TABLE users ADD COLUMN {col} {definition}")
+            except Exception:
+                pass  # Column already exists
+
         await db.commit()
 
 async def get_db():
@@ -87,6 +117,13 @@ async def get_user_by_spotify_id(spotify_id: str):
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute("SELECT * FROM users WHERE spotify_id = ?", (spotify_id,)) as cur:
+            row = await cur.fetchone()
+            return dict(row) if row else None
+
+async def get_user_by_username(username: str):
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute("SELECT * FROM users WHERE spotify_id = ? OR display_name = ?", (username, username)) as cur:
             row = await cur.fetchone()
             return dict(row) if row else None
 
@@ -131,9 +168,7 @@ async def upsert_artists(user_id: str, artists: list):
 async def get_user_artists(user_id: str):
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
-        async with db.execute(
-            "SELECT * FROM monitored_artists WHERE user_id = ?", (user_id,)
-        ) as cur:
+        async with db.execute("SELECT * FROM monitored_artists WHERE user_id = ?", (user_id,)) as cur:
             rows = await cur.fetchall()
             return [dict(r) for r in rows]
 
@@ -146,18 +181,34 @@ async def update_artist_tour_page(artist_db_id: int, url: str, page_hash: str):
         await db.commit()
 
 async def save_concert(concert: dict) -> bool:
-    """Returns True if this is a new concert (not a duplicate)"""
+    """Returns True if this is a new concert (not a duplicate)."""
     async with aiosqlite.connect(DB_PATH) as db:
         try:
             await db.execute("""
                 INSERT INTO detected_concerts
-                (user_id, artist_id, artist_name, event_title, venue, city, country, event_date, source, source_url, raw_text)
-                VALUES (:user_id, :artist_id, :artist_name, :event_title, :venue, :city, :country, :event_date, :source, :source_url, :raw_text)
+                (user_id, artist_id, artist_name, event_title, venue, city, country,
+                 event_date, source, source_url, raw_text, concert_type)
+                VALUES (:user_id, :artist_id, :artist_name, :event_title, :venue, :city,
+                        :country, :event_date, :source, :source_url, :raw_text, :concert_type)
             """, concert)
             await db.commit()
             return True
         except aiosqlite.IntegrityError:
             return False
+
+async def delete_duplicate_concerts(user_id: str):
+    """Remove duplicate concerts — keep newest, delete older dupes."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        # Delete same artist + same date duplicates, keeping the one with most info
+        await db.execute("""
+            DELETE FROM detected_concerts
+            WHERE id NOT IN (
+                SELECT MIN(id) FROM detected_concerts
+                WHERE user_id = ?
+                GROUP BY user_id, artist_id, DATE(event_date)
+            ) AND user_id = ? AND event_date IS NOT NULL AND event_date != ''
+        """, (user_id, user_id))
+        await db.commit()
 
 async def get_unnotified_concerts(user_id: str):
     async with aiosqlite.connect(DB_PATH) as db:
@@ -178,12 +229,50 @@ async def mark_concerts_notified(concert_ids: list):
         )
         await db.commit()
 
-async def get_user_concerts(user_id: str, limit: int = 50):
+async def get_user_concerts(user_id: str, limit: int = 50, ticket_sales_only: bool = False):
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        if ticket_sales_only:
+            query = """SELECT * FROM detected_concerts
+                       WHERE user_id = ? AND concert_type IN ('ticket_sale', 'presale')
+                       ORDER BY event_date ASC, detected_at DESC LIMIT ?"""
+        else:
+            query = """SELECT * FROM detected_concerts
+                       WHERE user_id = ?
+                       ORDER BY detected_at DESC LIMIT ?"""
+        async with db.execute(query, (user_id, limit)) as cur:
+            rows = await cur.fetchall()
+            return [dict(r) for r in rows]
+
+async def get_user_public_profile(user_id: str):
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
-            "SELECT * FROM detected_concerts WHERE user_id = ? ORDER BY detected_at DESC LIMIT ?",
-            (user_id, limit)
+            "SELECT id, display_name, spotify_id, profile_public FROM users WHERE id = ?",
+            (user_id,)
         ) as cur:
+            row = await cur.fetchone()
+            return dict(row) if row else None
+
+async def add_friend(user_id: str, friend_id: str):
+    async with aiosqlite.connect(DB_PATH) as db:
+        try:
+            await db.execute(
+                "INSERT INTO friends (user_id, friend_id, status) VALUES (?, ?, 'active')",
+                (user_id, friend_id)
+            )
+            await db.commit()
+            return True
+        except aiosqlite.IntegrityError:
+            return False
+
+async def get_friends(user_id: str):
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute("""
+            SELECT u.id, u.display_name, u.spotify_id
+            FROM friends f JOIN users u ON f.friend_id = u.id
+            WHERE f.user_id = ? AND f.status = 'active'
+        """, (user_id,)) as cur:
             rows = await cur.fetchall()
             return [dict(r) for r in rows]
