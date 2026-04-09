@@ -1,114 +1,41 @@
 import { useState } from 'react';
 import { useData } from '../hooks/useData';
 
-const TYPE_CONFIG = {
+const TYPE_LABELS = {
+  ticket_sale: { label: '🎟️ On Sale', cls: 'badge-ticket' },
   presale: { label: '🔑 Presale', cls: 'badge-presale' },
-  ticket_sale: { label: '🎟️ Tickets On Sale', cls: 'badge-ticket' },
   tour_announcement: { label: '📢 Announced', cls: 'badge-announce' },
   unknown: { label: '📍 Concert', cls: 'badge-unknown' },
 };
-const SOURCE_LABELS = { website: '🌐 Website', news: '📰 News', twitter: '🐦 Twitter', mailing_list: '📧 Email' };
+const SOURCE_LABELS = { website: '🌐 Website', news: '📰 News', twitter: '🐦 Twitter', ticketmaster: '🎫 Ticketmaster', bandsintown: '🎸 Bandsintown' };
 
-export default function Concerts() {
-  const { concerts, loading } = useData();
-  const [filter, setFilter] = useState('ticket_sale');
-  const [search, setSearch] = useState('');
-  const [sortBy, setSortBy] = useState('date');
-
-  const filtered = concerts
-    .filter(c => {
-      if (filter === 'ticket_sale') return ['ticket_sale', 'presale'].includes(c.concert_type);
-      if (filter === 'announce') return c.concert_type === 'tour_announcement';
-      if (filter === 'all') return true;
-      return true;
-    })
-    .filter(c => !search ||
-      c.artist_name?.toLowerCase().includes(search.toLowerCase()) ||
-      c.city?.toLowerCase().includes(search.toLowerCase()) ||
-      c.venue?.toLowerCase().includes(search.toLowerCase())
-    )
-    .sort((a, b) => {
-      if (sortBy === 'date') {
-        if (!a.event_date) return 1; if (!b.event_date) return -1;
-        return new Date(a.event_date) - new Date(b.event_date);
-      }
-      if (sortBy === 'location') return (a.city || '').localeCompare(b.city || '');
-      if (sortBy === 'artist') return (a.artist_name || '').localeCompare(b.artist_name || '');
-      return 0;
-    });
-
-  const filterBtn = (val, label, count) => (
-    <button key={val} onClick={() => setFilter(val)} className="pill-btn" style={{
-      padding: '7px 16px', fontSize: 12,
-      background: filter === val ? 'var(--accent)' : 'white',
-      color: filter === val ? 'white' : 'var(--text2)',
-      border: `1.5px solid ${filter === val ? 'var(--accent)' : 'var(--border2)'}`,
-      borderRadius: 50,
-      boxShadow: filter === val ? '0 4px 12px rgba(124,58,237,0.3)' : 'none',
-    }}>
-      {label} {count !== undefined && <span style={{ background: filter === val ? 'rgba(255,255,255,0.25)' : 'var(--surface3)', borderRadius: 10, padding: '1px 6px', marginLeft: 4, fontSize: 10 }}>{count}</span>}
-    </button>
-  );
-
-  const ticketCount = concerts.filter(c => ['ticket_sale','presale'].includes(c.concert_type)).length;
-  const announceCount = concerts.filter(c => c.concert_type === 'tour_announcement').length;
-
+function SaveButton({ concertId, savedIds, toggleSave }) {
+  const saved = savedIds.has(concertId);
   return (
-    <div style={{ animation: 'fadeIn 0.4s ease' }}>
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontFamily: "'Orbitron', monospace", fontSize: '1.5rem', fontWeight: 900, letterSpacing: '0.08em', marginBottom: 6 }}>CONCERTS 🎸</h1>
-        <p style={{ color: 'var(--text2)', fontSize: 13 }}>{concerts.length} alerts detected across your followed artists</p>
-      </div>
-
-      {/* Info banner */}
-      <div style={{ background: '#ede9fe', borderRadius: 12, padding: '10px 16px', marginBottom: 20, fontSize: 13, color: 'var(--accent)', fontWeight: 500, border: '1px solid var(--accent-light)' }}>
-        🎟️ <strong>Tickets On Sale</strong> tab shows confirmed sales & presales only. Switch to <strong>All</strong> to see tour announcements too.
-      </div>
-
-      {/* Controls */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
-        <input type="text" placeholder="Search artist, city, venue..." value={search} onChange={e => setSearch(e.target.value)} className="input-field" style={{ width: 240, borderRadius: 50, padding: '9px 18px' }} />
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {filterBtn('ticket_sale', '🎟️ Tickets & Presales', ticketCount)}
-          {filterBtn('announce', '📢 Announcements', announceCount)}
-          {filterBtn('all', '✦ All')}
-        </div>
-        <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="select-field" style={{ width: 150, borderRadius: 50, padding: '9px 16px' }}>
-          <option value="date">Sort: Date</option>
-          <option value="location">Sort: Location</option>
-          <option value="artist">Sort: Artist</option>
-        </select>
-      </div>
-
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: '3rem', fontSize: 14, color: 'var(--muted)' }}>Loading concerts...</div>
-      ) : filtered.length === 0 ? (
-        <div className="card" style={{ padding: '3rem', textAlign: 'center' }}>
-          <div style={{ fontSize: 48, marginBottom: 12 }}>🎸</div>
-          <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>
-            {search || filter !== 'all' ? 'No matches found' : 'No concerts yet'}
-          </div>
-          <div style={{ fontSize: 13, color: 'var(--text2)' }}>
-            {search || filter !== 'all' ? 'Try changing your filter or search.' : 'Go to Dashboard and trigger a scan.'}
-          </div>
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {filtered.map(c => <ConcertCard key={c.id} concert={c} />)}
-        </div>
-      )}
-    </div>
+    <button
+      onClick={e => { e.stopPropagation(); toggleSave(concertId, saved); }}
+      className="pill-btn"
+      style={{
+        padding: '6px 14px', fontSize: 12,
+        background: saved ? '#fce7f3' : 'white',
+        color: saved ? '#be185d' : 'var(--muted)',
+        border: `1.5px solid ${saved ? '#f472b6' : 'var(--border2)'}`,
+        borderRadius: 50,
+      }}
+    >
+      {saved ? '♥ Saved' : '♡ Save'}
+    </button>
   );
 }
 
-function ConcertCard({ concert: c }) {
+function ConcertCard({ concert: c, savedIds, toggleSave }) {
   const dateObj = c.event_date ? new Date(c.event_date) : null;
   const isValid = dateObj && !isNaN(dateObj.getTime());
-  const type = TYPE_CONFIG[c.concert_type] || TYPE_CONFIG.unknown;
+  const type = TYPE_LABELS[c.concert_type] || TYPE_LABELS.unknown;
   const sourceLabel = SOURCE_LABELS[c.source] || c.source;
 
   return (
-    <div className="concert-card">
+    <div className="concert-card" style={{ marginBottom: 10 }}>
       <div style={{ background: 'linear-gradient(135deg, var(--surface3), var(--pink-light))', borderRadius: 12, minWidth: 54, textAlign: 'center', padding: '10px 8px', flexShrink: 0 }}>
         <div style={{ fontSize: 10, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>
           {isValid ? dateObj.toLocaleString('en-AU', { month: 'short' }) : '—'}
@@ -131,7 +58,7 @@ function ConcertCard({ concert: c }) {
           <span className={`type-badge ${type.cls}`}>{type.label}</span>
           <span className="type-badge badge-source">{sourceLabel}</span>
           {!c.notified && <span className="type-badge badge-new">✨ New</span>}
-          {c.price && <span className="type-badge" style={{background:'#d1fae5',color:'#065f46',border:'1.5px solid #34d399'}}>💰 {c.price}</span>}
+          {c.price && <span className="type-badge" style={{ background: '#d1fae5', color: '#065f46', border: '1.5px solid #34d399' }}>💰 {c.price}</span>}
         </div>
         {c.raw_text && (
           <p style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.6, marginTop: 8, fontStyle: 'italic', borderLeft: '3px solid var(--border2)', paddingLeft: 10 }}>
@@ -141,17 +68,108 @@ function ConcertCard({ concert: c }) {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
+        <SaveButton concertId={c.id} savedIds={savedIds} toggleSave={toggleSave} />
         {c.source_url && (
-          <a href={c.source_url} target="_blank" rel="noopener noreferrer" className="pill-btn pill-btn-purple" style={{ padding: '7px 14px', fontSize: 11, textDecoration: 'none' }}>
+          <a href={c.source_url} target="_blank" rel="noopener noreferrer" className="pill-btn pill-btn-purple" style={{ padding: '6px 14px', fontSize: 11, textDecoration: 'none', textAlign: 'center' }}>
             🎟️ Tickets ↗
           </a>
         )}
         {c.source_url && (
-          <a href={c.source_url} target="_blank" rel="noopener noreferrer" className="pill-btn pill-btn-outline" style={{ padding: '7px 14px', fontSize: 11, textDecoration: 'none', border: '1.5px solid var(--accent)' }}>
+          <a href={c.source_url} target="_blank" rel="noopener noreferrer" className="pill-btn pill-btn-outline" style={{ padding: '6px 14px', fontSize: 11, textDecoration: 'none', textAlign: 'center', border: '1.5px solid var(--accent)' }}>
             Source ↗
           </a>
         )}
       </div>
+    </div>
+  );
+}
+
+export default function Concerts() {
+  const { concerts, savedIds, toggleSave, loading } = useData();
+  const [filter, setFilter] = useState('all');
+  const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState('date');
+
+  const filtered = concerts
+    .filter(c => {
+      if (filter === 'ticket_sale') return c.concert_type === 'ticket_sale';
+      if (filter === 'presale') return c.concert_type === 'presale';
+      if (filter === 'announce') return c.concert_type === 'tour_announcement' || c.concert_type === 'unknown';
+      if (filter === 'saved') return savedIds.has(c.id);
+      return true;
+    })
+    .filter(c => !search ||
+      c.artist_name?.toLowerCase().includes(search.toLowerCase()) ||
+      c.city?.toLowerCase().includes(search.toLowerCase()) ||
+      c.venue?.toLowerCase().includes(search.toLowerCase())
+    )
+    .sort((a, b) => {
+      if (sortBy === 'date') {
+        if (!a.event_date) return 1; if (!b.event_date) return -1;
+        return new Date(a.event_date) - new Date(b.event_date);
+      }
+      if (sortBy === 'location') return (a.city || '').localeCompare(b.city || '');
+      if (sortBy === 'artist') return (a.artist_name || '').localeCompare(b.artist_name || '');
+      return 0;
+    });
+
+  const ticketCount = concerts.filter(c => c.concert_type === 'ticket_sale').length;
+  const presaleCount = concerts.filter(c => c.concert_type === 'presale').length;
+  const announceCount = concerts.filter(c => c.concert_type === 'tour_announcement' || c.concert_type === 'unknown').length;
+  const savedCount = savedIds.size;
+
+  const filterBtn = (val, label, count) => (
+    <button key={val} onClick={() => setFilter(val)} className="pill-btn" style={{
+      padding: '7px 16px', fontSize: 12, borderRadius: 50,
+      background: filter === val ? 'var(--accent)' : 'white',
+      color: filter === val ? 'white' : 'var(--text2)',
+      border: `1.5px solid ${filter === val ? 'var(--accent)' : 'var(--border2)'}`,
+      boxShadow: filter === val ? '0 4px 12px rgba(124,58,237,0.3)' : 'none',
+    }}>
+      {label} <span style={{ background: filter === val ? 'rgba(255,255,255,0.25)' : 'var(--surface3)', borderRadius: 10, padding: '1px 6px', marginLeft: 4, fontSize: 10 }}>{count}</span>
+    </button>
+  );
+
+  return (
+    <div style={{ animation: 'fadeIn 0.4s ease' }}>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontFamily: "'Orbitron', monospace", fontSize: '1.5rem', fontWeight: 900, letterSpacing: '0.08em', marginBottom: 6 }}>CONCERTS 🎸</h1>
+        <p style={{ color: 'var(--text2)', fontSize: 13 }}>{concerts.length} concerts detected across your followed artists</p>
+      </div>
+
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+        <input type="text" placeholder="Search artist, city, venue..." value={search} onChange={e => setSearch(e.target.value)} className="input-field" style={{ width: 240, borderRadius: 50, padding: '9px 18px' }} />
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {filterBtn('all', '✦ All', concerts.length)}
+          {filterBtn('ticket_sale', '🎟️ On Sale', ticketCount)}
+          {filterBtn('presale', '🔑 Presale', presaleCount)}
+          {filterBtn('announce', '📢 Announced', announceCount)}
+          {filterBtn('saved', '♥ Saved', savedCount)}
+        </div>
+        <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="select-field" style={{ width: 150, borderRadius: 50, padding: '9px 16px' }}>
+          <option value="date">Sort: Date</option>
+          <option value="location">Sort: Location</option>
+          <option value="artist">Sort: Artist</option>
+        </select>
+      </div>
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--muted)' }}>Loading concerts...</div>
+      ) : filtered.length === 0 ? (
+        <div className="card" style={{ padding: '3rem', textAlign: 'center' }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>🎸</div>
+          <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>
+            {search || filter !== 'all' ? 'No matches found' : 'No concerts yet'}
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--text2)' }}>
+            {filter === 'saved' ? 'Save concerts using the ♡ button to see them here.' : 'Go to Dashboard and trigger a scan.'}
+          </div>
+        </div>
+      ) : (
+        <div>
+          {filtered.map(c => <ConcertCard key={c.id} concert={c} savedIds={savedIds} toggleSave={toggleSave} />)}
+        </div>
+      )}
     </div>
   );
 }

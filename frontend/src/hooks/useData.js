@@ -9,24 +9,25 @@ export function DataProvider({ children }) {
   const [concerts, setConcerts] = useState([]);
   const [artists, setArtists] = useState({ total: 0, artists: [] });
   const [topArtists, setTopArtists] = useState([]);
+  const [savedIds, setSavedIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [lastFetched, setLastFetched] = useState(null);
 
   const fetchAll = useCallback(async (force = false) => {
     if (!user) return;
-    // Don't refetch if data is less than 2 minutes old
     if (!force && lastFetched && Date.now() - lastFetched < 120000) return;
-
     setLoading(true);
     try {
-      const [concertsData, artistsData, topArtistsData] = await Promise.all([
+      const [concertsData, artistsData, topArtistsData, savedData] = await Promise.all([
         api.listConcerts(200),
         api.listArtists(),
         api.getTopArtists(20).catch(() => ({ artists: [] })),
+        api.getSavedIds().catch(() => ({ ids: [] })),
       ]);
       setConcerts(concertsData?.concerts || []);
       setArtists(artistsData || { total: 0, artists: [] });
       setTopArtists(topArtistsData?.artists || []);
+      setSavedIds(new Set(savedData?.ids || []));
       setLastFetched(Date.now());
     } catch (e) {
       console.error('Data fetch failed:', e);
@@ -39,10 +40,20 @@ export function DataProvider({ children }) {
     if (user) fetchAll();
   }, [user, fetchAll]);
 
-  const refresh = () => fetchAll(true);
+  const refresh = useCallback(() => fetchAll(true), [fetchAll]);
+
+  const toggleSave = async (concertId, currentlySaved) => {
+    if (currentlySaved) {
+      await api.unsaveConcert(concertId);
+      setSavedIds(prev => { const next = new Set(prev); next.delete(concertId); return next; });
+    } else {
+      await api.saveConcert(concertId, 'interested');
+      setSavedIds(prev => new Set([...prev, concertId]));
+    }
+  };
 
   return (
-    <DataContext.Provider value={{ concerts, artists, topArtists, loading, refresh }}>
+    <DataContext.Provider value={{ concerts, artists, topArtists, savedIds, loading, refresh, toggleSave }}>
       {children}
     </DataContext.Provider>
   );
