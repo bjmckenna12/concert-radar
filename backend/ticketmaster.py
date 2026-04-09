@@ -210,9 +210,8 @@ async def search_artist_events(
                         if presale_names:
                             raw_parts.append(f"Presales: {', '.join(presale_names[:3])}")
 
-                    display_name = f"{artist_name} (Tribute)" if is_tribute else artist_name
                     results.append({
-                        "artist_name": display_name,
+                        "artist_name": artist_name,
                         "event_title": event_name,
                         "venue": venue_name,
                         "city": city_name,

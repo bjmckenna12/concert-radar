@@ -265,16 +265,21 @@ async def delete_past_concerts(user_id: str):
         await db.commit()
 
 async def delete_duplicate_concerts(user_id: str):
-    """Remove duplicate concerts — keep newest, delete older dupes."""
+    """Remove duplicate concerts — same artist + same date + same venue, keep best source."""
     async with aiosqlite.connect(DB_PATH) as db:
-        # Delete same artist + same date duplicates, keeping the one with most info
+        # Only dedupe records that have actual dates AND venues
+        # This prevents wiping news articles that have no date
         await db.execute("""
             DELETE FROM detected_concerts
             WHERE id NOT IN (
-                SELECT MIN(id) FROM detected_concerts
+                SELECT MAX(id) FROM detected_concerts
                 WHERE user_id = ?
-                GROUP BY user_id, artist_id, DATE(event_date)
-            ) AND user_id = ? AND event_date IS NOT NULL AND event_date != ''
+                AND event_date IS NOT NULL AND event_date != ''
+                AND venue IS NOT NULL AND venue != ''
+                GROUP BY user_id, artist_id, DATE(event_date), venue
+            ) AND user_id = ?
+            AND event_date IS NOT NULL AND event_date != ''
+            AND venue IS NOT NULL AND venue != ''
         """, (user_id, user_id))
         await db.commit()
 
