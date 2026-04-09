@@ -181,17 +181,6 @@ async def scan_artist(user: dict, artist: dict, locations: list) -> int:
     except Exception as e:
         logger.warning(f"  [News] {artist_name} error: {e}")
 
-    # ── 3. SONGKICK — supplementary listings ─────────────────────────────────
-    try:
-        sk = await search_songkick(artist_name, locations)
-        logger.info(f"  [Songkick] {artist_name}: {len(sk)} events")
-        n = await save_items(sk, is_news=False)
-        new_count += n
-        if n:
-            logger.info(f"  [Songkick] {artist_name}: {n} new saved")
-    except Exception as e:
-        logger.debug(f"  [Songkick] {artist_name} error: {e}")
-
     # ── 4. ARTIST WEBSITE — only if nothing found yet ─────────────────────────
     if new_count == 0 and user.get("monitor_websites", 1):
         try:
