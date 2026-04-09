@@ -1,25 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useData } from '../hooks/useData';
 import api from '../utils/api';
 
 export default function Artists() {
-  const [artists, setArtists] = useState([]);
-  const [concerts, setConcerts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { artists: artistsData, concerts, loading, refresh } = useData();
+  const artists = artistsData?.artists || [];
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState(null);
   const [syncing, setSyncing] = useState(false);
 
-  useEffect(() => {
-    Promise.all([
-      api.listArtists().then(d => setArtists(d?.artists || [])),
-      api.listConcerts(200).then(d => setConcerts(d?.concerts || [])),
-    ]).finally(() => setLoading(false));
-  }, []);
-
   const handleSync = async () => {
     setSyncing(true);
-    try { await api.syncArtists(); const a = await api.listArtists(); setArtists(a?.artists || []); }
+    try { await api.syncArtists(); await refresh(); }
     finally { setSyncing(false); }
   };
 
