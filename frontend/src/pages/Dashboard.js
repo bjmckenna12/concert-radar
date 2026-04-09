@@ -248,8 +248,8 @@ export default function Dashboard() {
                   if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }}
                 style={{ background: 'var(--surface3)', color: 'var(--accent)', padding: '3px 10px', borderRadius: 50, fontSize: 11, fontWeight: 600, border: '1px solid var(--border2)', cursor: 'pointer', transition: 'all 0.15s' }}
-                onMouseOver={e => e.currentTarget.style.background = 'var(--accent)', e.currentTarget.style.color = 'white'}
-                onMouseOut={e => e.currentTarget.style.background = 'var(--surface3)', e.currentTarget.style.color = 'var(--accent)'}
+                onMouseOver={e => { e.currentTarget.style.background = 'var(--accent)'; e.currentTarget.style.color = 'white'; }}
+                onMouseOut={e => { e.currentTarget.style.background = 'var(--surface3)'; e.currentTarget.style.color = 'var(--accent)'; }}
               >
                 {a.name}
               </span>
