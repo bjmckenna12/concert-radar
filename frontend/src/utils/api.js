@@ -25,6 +25,8 @@ export const api = {
   listConcerts: (limit = 100, ticketSalesOnly = false) =>
     request(`/concerts/?limit=${limit}&ticket_sales_only=${ticketSalesOnly}`),
   triggerScan: () => request('/concerts/scan', { method: 'POST' }),
+  getScanStatus: () => request('/concerts/scan/status'),
+  clearTmCache: () => request('/concerts/clear-cache', { method: 'POST' }),
   dedupeConcerts: () => request('/concerts/dedupe', { method: 'POST' }),
   updateSettings: (data) => request('/settings/', { method: 'PATCH', body: JSON.stringify(data) }),
   getStatsSummary: () => request('/stats/summary'),

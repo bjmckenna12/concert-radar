@@ -5,7 +5,8 @@ from datetime import datetime, timezone
 
 from database import (
     get_all_users, get_user_artists, upsert_artists,
-    update_artist_tour_page, save_concert, delete_duplicate_concerts, delete_past_concerts,
+    update_artist_tour_page, save_concert, delete_duplicate_concerts,
+    delete_past_concerts, reclassify_stale_presales,
     get_unnotified_concerts, mark_concerts_notified
 )
 from scraper import search_google_news, search_twitter_public
@@ -94,6 +95,7 @@ async def run_user_monitoring(user: dict):
 
     await delete_duplicate_concerts(user_id)
     await delete_past_concerts(user_id)
+    await reclassify_stale_presales(user_id)
     logger.info(f"=== SCAN DONE: {total_new} new concerts ===")
 
     if user.get("alert_email"):

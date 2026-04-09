@@ -159,21 +159,45 @@ async def search_artist_events(
                     presales = sales.get("presales", [])
                     
                     now = datetime.now(timezone.utc)
-                    concert_type = "ticket_sale"  # default for TM — tickets exist
+                    concert_type = "tour_announcement"  # default if no sale info
 
-                    if presales:
-                        for ps in presales:
-                            ps_start = ps.get("startDateTime", "")
-                            ps_end = ps.get("endDateTime", "")
-                            if ps_start:
-                                try:
-                                    ps_dt = datetime.fromisoformat(ps_start.replace("Z", "+00:00"))
-                                    ps_end_dt = datetime.fromisoformat(ps_end.replace("Z", "+00:00")) if ps_end else None
-                                    if ps_dt <= now and (ps_end_dt is None or ps_end_dt >= now):
-                                        concert_type = "presale"
-                                        break
-                                except Exception:
-                                    pass
+                    # Check if general public sale is active
+                    public_start = public_sale.get("startDateTime", "")
+                    public_end = public_sale.get("endDateTime", "")
+                    general_sale_active = False
+                    if public_start:
+                        try:
+                            pub_dt = datetime.fromisoformat(public_start.replace("Z", "+00:00"))
+                            pub_end_dt = datetime.fromisoformat(public_end.replace("Z", "+00:00")) if public_end else None
+                            if pub_dt <= now and (pub_end_dt is None or pub_end_dt >= now):
+                                general_sale_active = True
+                        except Exception:
+                            pass
+
+                    if general_sale_active:
+                        # General sale is open — always ticket_sale regardless of presales
+                        concert_type = "ticket_sale"
+                    elif public_start:
+                        # Public sale exists (future or past) — check presales
+                        active_presale = False
+                        if presales:
+                            for ps in presales:
+                                ps_start = ps.get("startDateTime", "")
+                                ps_end = ps.get("endDateTime", "")
+                                if ps_start:
+                                    try:
+                                        ps_dt = datetime.fromisoformat(ps_start.replace("Z", "+00:00"))
+                                        ps_end_dt = datetime.fromisoformat(ps_end.replace("Z", "+00:00")) if ps_end else None
+                                        # Presale is active if started and not yet ended
+                                        if ps_dt <= now and (ps_end_dt is None or ps_end_dt >= now):
+                                            active_presale = True
+                                            break
+                                    except Exception:
+                                        pass
+                        concert_type = "presale" if active_presale else "ticket_sale"
+                    else:
+                        # No sale info at all — mark as announcement
+                        concert_type = "tour_announcement"
 
                     # Build raw text for display
                     raw_parts = [event_name]

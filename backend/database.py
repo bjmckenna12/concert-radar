@@ -201,17 +201,47 @@ async def save_concert(concert: dict) -> bool:
     async with aiosqlite.connect(DB_PATH) as db:
         try:
             concert.setdefault("price", "")
+            concert.setdefault("presale_end_date", "")
             await db.execute("""
                 INSERT INTO detected_concerts
                 (user_id, artist_id, artist_name, event_title, venue, city, country,
-                 event_date, source, source_url, raw_text, concert_type, price)
+                 event_date, source, source_url, raw_text, concert_type, price, presale_end_date)
                 VALUES (:user_id, :artist_id, :artist_name, :event_title, :venue, :city,
-                        :country, :event_date, :source, :source_url, :raw_text, :concert_type, :price)
+                        :country, :event_date, :source, :source_url, :raw_text, :concert_type,
+                        :price, :presale_end_date)
             """, concert)
             await db.commit()
             return True
         except aiosqlite.IntegrityError:
             return False
+
+async def reclassify_stale_presales(user_id: str):
+    """
+    Move presales to ticket_sale when:
+    1. presale_end_date is set and has passed (accurate — from TM data)
+    2. presale_end_date not set and detected > 14 days ago (fallback only)
+    """
+    async with aiosqlite.connect(DB_PATH) as db:
+        # Case 1: actual presale end date has passed
+        await db.execute("""
+            UPDATE detected_concerts
+            SET concert_type = 'ticket_sale'
+            WHERE user_id = ?
+            AND concert_type = 'presale'
+            AND presale_end_date != ''
+            AND presale_end_date IS NOT NULL
+            AND datetime(presale_end_date) < datetime('now')
+        """, (user_id,))
+        # Case 2: no presale end date — 14 day fallback
+        await db.execute("""
+            UPDATE detected_concerts
+            SET concert_type = 'ticket_sale'
+            WHERE user_id = ?
+            AND concert_type = 'presale'
+            AND (presale_end_date = '' OR presale_end_date IS NULL)
+            AND datetime(detected_at) < datetime('now', '-14 days')
+        """, (user_id,))
+        await db.commit()
 
 async def delete_past_concerts(user_id: str):
     """Remove concerts that have already happened or are cancelled."""
