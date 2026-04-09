@@ -87,18 +87,24 @@ async def init_db():
         """)
 
         # Migrate existing tables — add new columns if missing
+        # Migrate detected_concerts columns
         for col, definition in [
             ("concert_type", "TEXT DEFAULT 'unknown'"),
             ("price", "TEXT DEFAULT ''"),
+        ]:
+            try:
+                await db.execute(f"ALTER TABLE detected_concerts ADD COLUMN {col} {definition}")
+            except Exception:
+                pass  # Column already exists
+
+        # Migrate users columns
+        for col, definition in [
             ("favorite_cities", "TEXT DEFAULT '[]'"),
             ("friends", "TEXT DEFAULT '[]'"),
             ("profile_public", "INTEGER DEFAULT 1"),
         ]:
             try:
-                if col in ["concert_type"]:
-                    await db.execute(f"ALTER TABLE detected_concerts ADD COLUMN {col} {definition}")
-                else:
-                    await db.execute(f"ALTER TABLE users ADD COLUMN {col} {definition}")
+                await db.execute(f"ALTER TABLE users ADD COLUMN {col} {definition}")
             except Exception:
                 pass  # Column already exists
 
