@@ -1,0 +1,56 @@
+warning: in the working copy of 'backend/database.py', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/backend/database.py b/backend/database.py[m
+[1mindex 979dfe2..77b9964 100644[m
+[1m--- a/backend/database.py[m
+[1m+++ b/backend/database.py[m
+[36m@@ -74,6 +74,15 @@[m [masync def init_db():[m
+                 UNIQUE(user_id, friend_id)[m
+             )[m
+         """)[m
+[32m+[m[32m        await db.execute("""[m
+[32m+[m[32m            CREATE TABLE IF NOT EXISTS tm_cache ([m
+[32m+[m[32m                id INTEGER PRIMARY KEY AUTOINCREMENT,[m
+[32m+[m[32m                artist_name TEXT NOT NULL,[m
+[32m+[m[32m                results TEXT NOT NULL,[m
+[32m+[m[32m                cached_at TEXT DEFAULT CURRENT_TIMESTAMP,[m
+[32m+[m[32m                UNIQUE(artist_name)[m
+[32m+[m[32m            )[m
+[32m+[m[32m        """)[m
+         await db.execute("""[m
+             CREATE TABLE IF NOT EXISTS scan_log ([m
+                 id INTEGER PRIMARY KEY AUTOINCREMENT,[m
+[36m@@ -250,6 +259,34 @@[m [masync def mark_concerts_notified(concert_ids: list):[m
+         )[m
+         await db.commit()[m
+ [m
+[32m+[m[32masync def get_tm_cache(artist_name: str) -> list | None:[m
+[32m+[m[32m    """Return cached TM results if less than 12 hours old."""[m
+[32m+[m[32m    async with aiosqlite.connect(DB_PATH) as db:[m
+[32m+[m[32m        db.row_factory = aiosqlite.Row[m
+[32m+[m[32m        async with db.execute("""[m
+[32m+[m[32m            SELECT results, cached_at FROM tm_cache[m
+[32m+[m[32m            WHERE artist_name = ?[m
+[32m+[m[32m            AND datetime(cached_at) > datetime('now', '-12 hours')[m
+[32m+[m[32m        """, (artist_name,)) as cur:[m
+[32m+[m[32m            row = await cur.fetchone()[m
+[32m+[m[32m            if row:[m
+[32m+[m[32m                import json as _json[m
+[32m+[m[32m                return _json.loads(row["results"])[m
+[32m+[m[32m    return None[m
+[32m+[m
+[32m+[m[32masync def set_tm_cache(artist_name: str, results: list):[m
+[32m+[m[32m    """Cache TM results for an artist."""[m
+[32m+[m[32m    import json as _json[m
+[32m+[m[32m    async with aiosqlite.connect(DB_PATH) as db:[m
+[32m+[m[32m        await db.execute("""[m
+[32m+[m[32m            INSERT INTO tm_cache (artist_name, results)[m
+[32m+[m[32m            VALUES (?, ?)[m
+[32m+[m[32m            ON CONFLICT(artist_name) DO UPDATE SET[m
+[32m+[m[32m                results = excluded.results,[m
+[32m+[m[32m                cached_at = CURRENT_TIMESTAMP[m
+[32m+[m[32m        """, (artist_name, _json.dumps(results)))[m
+[32m+[m[32m        await db.commit()[m
+[32m+[m
+ async def get_user_concerts(user_id: str, limit: int = 50, ticket_sales_only: bool = False):[m
+     async with aiosqlite.connect(DB_PATH) as db:[m
+         db.row_factory = aiosqlite.Row[m

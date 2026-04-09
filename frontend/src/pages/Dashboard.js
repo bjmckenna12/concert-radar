@@ -3,6 +3,12 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import api from '../utils/api';
 
+const TYPE_CONFIG = {
+  presale: { label: '🔑 Presale', cls: 'badge-presale' },
+  ticket_sale: { label: '🎟️ On Sale', cls: 'badge-ticket' },
+  tour_announcement: { label: '📢 Announced', cls: 'badge-announce' },
+  unknown: { label: '📍 Concert', cls: 'badge-unknown' },
+};
 
 function ConcertMiniCard({ concert: c }) {
   const dateObj = c.event_date ? new Date(c.event_date) : null;

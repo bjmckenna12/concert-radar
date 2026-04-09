@@ -1,6 +1,7 @@
 import httpx
 import asyncio
 import logging
+from database import get_tm_cache, set_tm_cache
 from datetime import datetime, timezone
 from urllib.parse import quote_plus
 import os
@@ -42,12 +43,17 @@ async def search_artist_events(
 ) -> list:
     """
     Search Ticketmaster for upcoming events for a given artist.
-    Searches by artist name + optional country/city filters.
-    Returns structured concert dicts ready to save to DB.
+    Uses 12-hour cache to avoid hitting rate limits.
     """
     if not TM_API_KEY:
         logger.warning("TICKETMASTER_API_KEY not set — skipping TM search")
         return []
+
+    # Check cache first
+    cached = await get_tm_cache(artist_name)
+    if cached is not None:
+        logger.debug(f"  [TM Cache] {artist_name}: {len(cached)} events (cached)")
+        return cached
 
     results = []
 
@@ -204,6 +210,9 @@ async def search_artist_events(
 
     if results:
         logger.info(f"  [Ticketmaster] {artist_name}: {len(results)} events found")
+
+    # Cache results (even empty results to avoid re-querying)
+    await set_tm_cache(artist_name, results)
 
     return results
 

@@ -75,6 +75,15 @@ async def init_db():
             )
         """)
         await db.execute("""
+            CREATE TABLE IF NOT EXISTS tm_cache (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                artist_name TEXT NOT NULL,
+                results TEXT NOT NULL,
+                cached_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(artist_name)
+            )
+        """)
+        await db.execute("""
             CREATE TABLE IF NOT EXISTS scan_log (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id TEXT NOT NULL,
@@ -248,6 +257,34 @@ async def mark_concerts_notified(concert_ids: list):
             f"UPDATE detected_concerts SET notified = 1 WHERE id IN ({placeholders})",
             concert_ids
         )
+        await db.commit()
+
+async def get_tm_cache(artist_name: str) -> list | None:
+    """Return cached TM results if less than 12 hours old."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute("""
+            SELECT results, cached_at FROM tm_cache
+            WHERE artist_name = ?
+            AND datetime(cached_at) > datetime('now', '-12 hours')
+        """, (artist_name,)) as cur:
+            row = await cur.fetchone()
+            if row:
+                import json as _json
+                return _json.loads(row["results"])
+    return None
+
+async def set_tm_cache(artist_name: str, results: list):
+    """Cache TM results for an artist."""
+    import json as _json
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("""
+            INSERT INTO tm_cache (artist_name, results)
+            VALUES (?, ?)
+            ON CONFLICT(artist_name) DO UPDATE SET
+                results = excluded.results,
+                cached_at = CURRENT_TIMESTAMP
+        """, (artist_name, _json.dumps(results)))
         await db.commit()
 
 async def get_user_concerts(user_id: str, limit: int = 50, ticket_sales_only: bool = False):
