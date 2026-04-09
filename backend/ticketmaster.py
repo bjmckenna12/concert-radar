@@ -2,6 +2,8 @@ import httpx
 import asyncio
 import logging
 from database import get_tm_cache, set_tm_cache
+from classifier import is_tribute_event, format_tribute_label
+from classifier import is_tribute_act
 from datetime import datetime, timezone
 from urllib.parse import quote_plus
 import os
@@ -186,8 +188,9 @@ async def search_artist_events(
                         if presale_names:
                             raw_parts.append(f"Presales: {', '.join(presale_names[:3])}")
 
+                    display_name = f"{artist_name} (Tribute)" if is_tribute else artist_name
                     results.append({
-                        "artist_name": artist_name,
+                        "artist_name": display_name,
                         "event_title": event_name,
                         "venue": venue_name,
                         "city": city_name,

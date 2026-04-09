@@ -3,16 +3,19 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import api from '../utils/api';
 
+
 function ConcertMiniCard({ concert: c }) {
   const dateObj = c.event_date ? new Date(c.event_date) : null;
   const isValid = dateObj && !isNaN(dateObj.getTime());
 
   return (
-    <div style={{
-      background: 'white', borderRadius: 14, border: '1.5px solid var(--border)',
-      padding: '12px 14px', marginBottom: 8, transition: 'all 0.2s',
-      boxShadow: '0 2px 8px rgba(124,58,237,0.05)',
-    }}
+    <div
+      id={`artist-${c.artist_id}`}
+      style={{
+        background: 'white', borderRadius: 14, border: '1.5px solid var(--border)',
+        padding: '12px 14px', marginBottom: 8, transition: 'all 0.2s',
+        boxShadow: '0 2px 8px rgba(124,58,237,0.05)',
+      }}
       onMouseOver={e => e.currentTarget.style.transform = 'translateY(-1px)'}
       onMouseOut={e => e.currentTarget.style.transform = 'none'}
     >
@@ -127,17 +130,27 @@ export default function Dashboard() {
     ]).finally(() => setLoading(false));
   }, []);
 
-  // Filter to top 20 artists' concerts for dashboard
+  // Filter to top 20 artists' concerts for dashboard, prioritised first
   const topArtistIds = new Set(topArtists.map(a => a.id));
-  const dashboardConcerts = topArtists.length > 0
-    ? [...concerts.filter(c => topArtistIds.has(c.artist_id)), ...concerts.filter(c => !topArtistIds.has(c.artist_id))]
-    : concerts;
+  const prioritised = concerts.filter(c => topArtistIds.has(c.artist_id));
+  const others = concerts.filter(c => !topArtistIds.has(c.artist_id));
+  const dashboardConcerts = [...prioritised, ...others];
 
-  // Split into 3 columns
-  const announced = dashboardConcerts.filter(c => c.concert_type === 'tour_announcement');
-  const presales = dashboardConcerts.filter(c => c.concert_type === 'presale');
-  const onSale = dashboardConcerts.filter(c => c.concert_type === 'ticket_sale');
-  const unknown = dashboardConcerts.filter(c => c.concert_type === 'unknown' || !c.concert_type);
+  // Limit to max 3 shows per artist to avoid flooding
+  const limitPerArtist = (list, max = 3) => {
+    const counts = {};
+    return list.filter(c => {
+      const key = c.artist_id || c.artist_name;
+      counts[key] = (counts[key] || 0) + 1;
+      return counts[key] <= max;
+    });
+  };
+
+  // Split into 3 columns — presale must NOT have general sale language
+  const announced = limitPerArtist(dashboardConcerts.filter(c => c.concert_type === 'tour_announcement'), 3);
+  const presales = limitPerArtist(dashboardConcerts.filter(c => c.concert_type === 'presale'), 3);
+  const onSale = limitPerArtist(dashboardConcerts.filter(c => c.concert_type === 'ticket_sale'), 3);
+  const unknown = limitPerArtist(dashboardConcerts.filter(c => c.concert_type === 'unknown' || !c.concert_type), 2);
 
   // Merge unknown into announced as a fallback
   const announcedAll = [...announced, ...unknown];
@@ -228,7 +241,16 @@ export default function Dashboard() {
           </div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {topArtists.slice(0, 8).map(a => (
-              <span key={a.id} style={{ background: 'var(--surface3)', color: 'var(--accent)', padding: '3px 10px', borderRadius: 50, fontSize: 11, fontWeight: 600, border: '1px solid var(--border2)' }}>
+              <span
+                key={a.id}
+                onClick={() => {
+                  const el = document.getElementById(`artist-${a.id}`);
+                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }}
+                style={{ background: 'var(--surface3)', color: 'var(--accent)', padding: '3px 10px', borderRadius: 50, fontSize: 11, fontWeight: 600, border: '1px solid var(--border2)', cursor: 'pointer', transition: 'all 0.15s' }}
+                onMouseOver={e => e.currentTarget.style.background = 'var(--accent)', e.currentTarget.style.color = 'white'}
+                onMouseOut={e => e.currentTarget.style.background = 'var(--surface3)', e.currentTarget.style.color = 'var(--accent)'}
+              >
                 {a.name}
               </span>
             ))}
@@ -293,4 +315,3 @@ export default function Dashboard() {
     </div>
   );
 }
-

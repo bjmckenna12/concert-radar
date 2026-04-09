@@ -214,15 +214,22 @@ async def save_concert(concert: dict) -> bool:
             return False
 
 async def delete_past_concerts(user_id: str):
-    """Remove concerts that have already happened."""
+    """Remove concerts that have already happened or are cancelled."""
     async with aiosqlite.connect(DB_PATH) as db:
+        # Remove past dated events (non-news sources have reliable dates)
         await db.execute("""
             DELETE FROM detected_concerts
             WHERE user_id = ?
             AND event_date != ''
             AND event_date IS NOT NULL
-            AND source != 'news'
+            AND source NOT IN ('news', 'twitter')
             AND DATE(event_date) < DATE('now')
+        """, (user_id,))
+        # Remove explicitly cancelled events
+        await db.execute("""
+            DELETE FROM detected_concerts
+            WHERE user_id = ?
+            AND concert_type = 'cancelled'
         """, (user_id,))
         await db.commit()
 
@@ -292,11 +299,14 @@ async def get_user_concerts(user_id: str, limit: int = 50, ticket_sales_only: bo
         db.row_factory = aiosqlite.Row
         if ticket_sales_only:
             query = """SELECT * FROM detected_concerts
-                       WHERE user_id = ? AND concert_type IN ('ticket_sale', 'presale')
+                       WHERE user_id = ? 
+                       AND concert_type IN ('ticket_sale', 'presale')
+                       AND (concert_type != 'cancelled')
                        ORDER BY event_date ASC, detected_at DESC LIMIT ?"""
         else:
             query = """SELECT * FROM detected_concerts
                        WHERE user_id = ?
+                       AND concert_type != 'cancelled'
                        ORDER BY detected_at DESC LIMIT ?"""
         async with db.execute(query, (user_id, limit)) as cur:
             rows = await cur.fetchall()
