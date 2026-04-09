@@ -20,6 +20,9 @@ SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USER = os.getenv("SMTP_USER", "")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")  # App password, not account password
 
+# Ticketmaster
+TICKETMASTER_API_KEY = os.getenv("TICKETMASTER_API_KEY", "")
+
 # Geolocation
 IPAPI_URL = "https://ipapi.co/{ip}/json/"
 

@@ -9,10 +9,11 @@ from database import (
     get_unnotified_concerts, mark_concerts_notified
 )
 from scraper import (
-    search_google_news, search_bandsintown,
+    search_google_news, search_songkick,
     find_tour_page_url, scrape_tour_page, extract_concerts_from_text,
     search_twitter_public
 )
+from ticketmaster import search_artist_events
 from classifier import classify_concert
 from notifier import send_alert_email
 from routers.auth import refresh_spotify_token
@@ -23,7 +24,13 @@ logger = logging.getLogger(__name__)
 BATCH_SIZE = 10
 
 
-def is_future_date(date_str: str) -> bool:
+def is_future_concert_date(date_str: str, is_news_source: bool = False) -> bool:
+    """
+    For news sources never filter by date — article publish date != concert date.
+    For scraped/TM dates, only keep future events.
+    """
+    if is_news_source:
+        return True
     if not date_str:
         return True
     try:
@@ -42,6 +49,7 @@ def is_future_date(date_str: str) -> bool:
 async def run_monitoring_cycle():
     logger.info(f"[{datetime.utcnow().isoformat()}] Starting monitoring cycle")
     users = await get_all_users()
+    logger.info(f"Monitoring {len(users)} users")
     for user in users:
         try:
             await run_user_monitoring(user)
@@ -52,7 +60,7 @@ async def run_monitoring_cycle():
 
 async def run_user_monitoring(user: dict):
     user_id = user["id"]
-    logger.info(f"=== SCAN START: {user.get('display_name','')} ===")
+    logger.info(f"=== SCAN START: {user.get('display_name', '')} ===")
 
     # Sync Spotify artists
     try:
@@ -60,7 +68,7 @@ async def run_user_monitoring(user: dict):
         artists = await fetch_all_followed_artists(access_token)
         if artists:
             await upsert_artists(user_id, artists)
-            logger.info(f"Synced {len(artists)} Spotify artists")
+            logger.info(f"Synced {len(artists)} artists")
     except Exception as e:
         logger.warning(f"Spotify sync failed: {e}")
 
@@ -87,8 +95,7 @@ async def run_user_monitoring(user: dict):
     total_new = 0
     for i in range(0, len(db_artists), BATCH_SIZE):
         batch = db_artists[i:i + BATCH_SIZE]
-        batch_names = [a["artist_name"] for a in batch]
-        logger.info(f"Batch {i // BATCH_SIZE + 1}: {batch_names}")
+        logger.info(f"Batch {i // BATCH_SIZE + 1}: {[a['artist_name'] for a in batch]}")
         tasks = [scan_artist(user, artist, search_locations) for artist in batch]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         for r in results:
@@ -99,8 +106,9 @@ async def run_user_monitoring(user: dict):
         await asyncio.sleep(2)
 
     await delete_duplicate_concerts(user_id)
-    logger.info(f"=== SCAN DONE: {total_new} new concerts found ===")
+    logger.info(f"=== SCAN DONE: {total_new} new concerts ===")
 
+    # Send email alerts
     if user.get("alert_email"):
         unnotified = await get_unnotified_concerts(user_id)
         if unnotified:
@@ -111,20 +119,26 @@ async def run_user_monitoring(user: dict):
             )
             if success:
                 await mark_concerts_notified([c["id"] for c in unnotified])
+                logger.info(f"Sent alert for {len(unnotified)} concerts")
 
 
 async def scan_artist(user: dict, artist: dict, locations: list) -> int:
+    """
+    Scan all sources for one artist.
+    Order: Ticketmaster (confirmed) → Google News → Songkick → Website → Twitter
+    """
     artist_name = artist["artist_name"]
     user_id = user["id"]
     artist_spotify_id = artist["spotify_artist_id"]
     new_count = 0
 
-    async def save_items(items: list, source: str, source_url: str = "") -> int:
+    async def save_items(items: list, is_news: bool = False) -> int:
         saved = 0
         for item in items:
-            if not is_future_date(item.get("event_date", "")):
+            if not is_future_concert_date(item.get("event_date", ""), is_news_source=is_news):
                 continue
-            concert_type = classify_concert(
+            # Use pre-classified type if present (TM sets this), otherwise classify
+            concert_type = item.get("concert_type") or classify_concert(
                 item.get("raw_text", ""), item.get("event_title", "")
             )
             concert = {
@@ -136,8 +150,8 @@ async def scan_artist(user: dict, artist: dict, locations: list) -> int:
                 "city": item.get("city", ""),
                 "country": item.get("country", ""),
                 "event_date": item.get("event_date", ""),
-                "source": source,
-                "source_url": item.get("source_url") or source_url,
+                "source": item.get("source", "unknown"),
+                "source_url": item.get("source_url", ""),
                 "raw_text": item.get("raw_text", ""),
                 "concert_type": concert_type,
             }
@@ -145,56 +159,65 @@ async def scan_artist(user: dict, artist: dict, locations: list) -> int:
                 saved += 1
         return saved
 
-    # 1. Google News RSS
+    # ── 1. TICKETMASTER — primary, most reliable ──────────────────────────────
     try:
-        news = await search_google_news(artist_name, locations)
-        logger.info(f"  [News] {artist_name}: {len(news)} articles found")
-        n = await save_items(news, "news")
+        tm_events = await search_artist_events(artist_name, locations)
+        logger.info(f"  [TM] {artist_name}: {len(tm_events)} events")
+        n = await save_items(tm_events, is_news=False)
         new_count += n
         if n:
-            logger.info(f"  [News] {artist_name}: {n} NEW saved")
+            logger.info(f"  [TM] {artist_name}: {n} new saved")
+    except Exception as e:
+        logger.warning(f"  [TM] {artist_name} error: {e}")
+
+    # ── 2. GOOGLE NEWS RSS — early announcements ──────────────────────────────
+    try:
+        news = await search_google_news(artist_name, locations)
+        logger.info(f"  [News] {artist_name}: {len(news)} articles")
+        n = await save_items(news, is_news=True)
+        new_count += n
+        if n:
+            logger.info(f"  [News] {artist_name}: {n} new saved")
     except Exception as e:
         logger.warning(f"  [News] {artist_name} error: {e}")
 
-    # 2. Bandsintown
+    # ── 3. SONGKICK — supplementary listings ─────────────────────────────────
     try:
-        bit = await search_bandsintown(artist_name, locations)
-        logger.info(f"  [Bandsintown] {artist_name}: {len(bit)} events found")
-        n = await save_items(bit, "bandsintown")
+        sk = await search_songkick(artist_name, locations)
+        logger.info(f"  [Songkick] {artist_name}: {len(sk)} events")
+        n = await save_items(sk, is_news=False)
         new_count += n
         if n:
-            logger.info(f"  [Bandsintown] {artist_name}: {n} NEW saved")
+            logger.info(f"  [Songkick] {artist_name}: {n} new saved")
     except Exception as e:
-        logger.warning(f"  [Bandsintown] {artist_name} error: {e}")
+        logger.debug(f"  [Songkick] {artist_name} error: {e}")
 
-    # 3. Artist website — only if nothing found yet
+    # ── 4. ARTIST WEBSITE — only if nothing found yet ─────────────────────────
     if new_count == 0 and user.get("monitor_websites", 1):
         try:
             tour_url = artist.get("tour_page_url")
             if not tour_url:
                 tour_url = await find_tour_page_url(artist_name)
             if tour_url:
-                logger.info(f"  [Website] {artist_name}: trying {tour_url}")
                 page_text, page_hash = await scrape_tour_page(tour_url)
                 if page_hash and page_hash != artist.get("last_tour_page_hash"):
                     await update_artist_tour_page(artist["id"], tour_url, page_hash)
                     found = extract_concerts_from_text(page_text, artist_name, locations)
-                    n = await save_items(found, "website", tour_url)
+                    n = await save_items(found, is_news=False)
                     new_count += n
                     if n:
-                        logger.info(f"  [Website] {artist_name}: {n} NEW saved")
-            else:
-                logger.debug(f"  [Website] {artist_name}: no tour page found")
+                        logger.info(f"  [Website] {artist_name}: {n} new saved")
         except Exception as e:
             logger.warning(f"  [Website] {artist_name} error: {e}")
 
-    # 4. Twitter — last resort
+    # ── 5. TWITTER/NITTER — last resort ──────────────────────────────────────
     if new_count == 0 and user.get("monitor_twitter", 1):
         try:
             tweets = await search_twitter_public(artist_name)
-            logger.info(f"  [Twitter] {artist_name}: {len(tweets)} tweets found")
-            n = await save_items(tweets, "twitter")
+            n = await save_items(tweets, is_news=True)
             new_count += n
+            if n:
+                logger.info(f"  [Twitter] {artist_name}: {n} new saved")
         except Exception as e:
             logger.debug(f"  [Twitter] {artist_name} error: {e}")
 

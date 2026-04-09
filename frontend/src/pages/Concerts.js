@@ -136,6 +136,7 @@ function ConcertCard({ concert: c }) {
           <span className={`type-badge ${type.cls}`}>{type.label}</span>
           <span className="type-badge badge-source">{sourceLabel}</span>
           {!c.notified && <span className="type-badge badge-new">✨ New</span>}
+          {c.price && <span className="type-badge" style={{background:'#d1fae5',color:'#065f46',border:'1.5px solid #34d399'}}>💰 {c.price}</span>}
         </div>
         {c.raw_text && (
           <p style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.6, marginTop: 8, fontStyle: 'italic', borderLeft: '3px solid var(--border2)', paddingLeft: 10 }}>

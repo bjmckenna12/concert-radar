@@ -89,6 +89,7 @@ async def init_db():
         # Migrate existing tables — add new columns if missing
         for col, definition in [
             ("concert_type", "TEXT DEFAULT 'unknown'"),
+            ("price", "TEXT DEFAULT ''"),
             ("favorite_cities", "TEXT DEFAULT '[]'"),
             ("friends", "TEXT DEFAULT '[]'"),
             ("profile_public", "INTEGER DEFAULT 1"),
@@ -184,12 +185,14 @@ async def save_concert(concert: dict) -> bool:
     """Returns True if this is a new concert (not a duplicate)."""
     async with aiosqlite.connect(DB_PATH) as db:
         try:
-            await db.execute("""
+            # Add price if not present
+                concert.setdefault("price", "")
+                await db.execute("""
                 INSERT INTO detected_concerts
                 (user_id, artist_id, artist_name, event_title, venue, city, country,
-                 event_date, source, source_url, raw_text, concert_type)
+                 event_date, source, source_url, raw_text, concert_type, price)
                 VALUES (:user_id, :artist_id, :artist_name, :event_title, :venue, :city,
-                        :country, :event_date, :source, :source_url, :raw_text, :concert_type)
+                        :country, :event_date, :source, :source_url, :raw_text, :concert_type, :price)
             """, concert)
             await db.commit()
             return True
