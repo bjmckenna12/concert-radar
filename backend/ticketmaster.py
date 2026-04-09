@@ -2,8 +2,6 @@ import httpx
 import asyncio
 import logging
 from database import get_tm_cache, set_tm_cache
-from classifier import is_tribute_event, format_tribute_label
-from classifier import is_tribute_act
 from datetime import datetime, timezone
 from urllib.parse import quote_plus
 import os
