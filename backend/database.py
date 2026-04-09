@@ -189,9 +189,9 @@ async def save_concert(concert: dict) -> bool:
             await db.execute("""
                 INSERT INTO detected_concerts
                 (user_id, artist_id, artist_name, event_title, venue, city, country,
-                 event_date, source, source_url, raw_text, concert_type, price)
+                 event_date, source, source_url, raw_text, concert_type)
                 VALUES (:user_id, :artist_id, :artist_name, :event_title, :venue, :city,
-                        :country, :event_date, :source, :source_url, :raw_text, :concert_type, :price)
+                        :country, :event_date, :source, :source_url, :raw_text, :concert_type)
             """, concert)
             await db.commit()
             return True
