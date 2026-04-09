@@ -100,6 +100,7 @@ async def init_db():
         for col, definition in [
             ("concert_type", "TEXT DEFAULT 'unknown'"),
             ("price", "TEXT DEFAULT ''"),
+            ("presale_end_date", "TEXT DEFAULT ''"),
         ]:
             try:
                 await db.execute(f"ALTER TABLE detected_concerts ADD COLUMN {col} {definition}")
