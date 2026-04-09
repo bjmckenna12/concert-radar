@@ -10,7 +10,7 @@ from database import (
     get_unnotified_concerts, mark_concerts_notified,
     log_activity, check_and_award_badges
 )
-from database import (
+from database_saves import (
     get_saved_concerts_with_status_change, update_saved_concert_known_type,
     log_activity, award_badge, get_gamification_stats
 )
@@ -221,4 +221,3 @@ async def scan_artist(user: dict, artist: dict, locations: list) -> int:
             pass
 
     return new_count
-
