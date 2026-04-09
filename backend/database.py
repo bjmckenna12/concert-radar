@@ -185,8 +185,8 @@ async def save_concert(concert: dict) -> bool:
     """Returns True if this is a new concert (not a duplicate)."""
     async with aiosqlite.connect(DB_PATH) as db:
         try:
-            concert.setdefault("price", "")
-            await db.execute("""
+        concert.setdefault("price", "")
+        await db.execute("""
                 INSERT INTO detected_concerts
                 (user_id, artist_id, artist_name, event_title, venue, city, country,
                  event_date, source, source_url, raw_text, concert_type, price)
