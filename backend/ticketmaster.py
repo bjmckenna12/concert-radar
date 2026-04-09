@@ -72,7 +72,7 @@ async def search_artist_events(
                     "keyword": artist_name,
                     "size": 20,
                     "sort": "date,asc",
-                    "startDateTime": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "startDateTime": datetime.now(timezone.utc).strftime("%Y-%m-%dT00:00:00Z"),
                     "classificationName": "music",
                 }
                 if country_code:

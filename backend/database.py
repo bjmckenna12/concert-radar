@@ -189,14 +189,27 @@ async def save_concert(concert: dict) -> bool:
             await db.execute("""
                 INSERT INTO detected_concerts
                 (user_id, artist_id, artist_name, event_title, venue, city, country,
-                 event_date, source, source_url, raw_text, concert_type)
+                 event_date, source, source_url, raw_text, concert_type, price)
                 VALUES (:user_id, :artist_id, :artist_name, :event_title, :venue, :city,
-                        :country, :event_date, :source, :source_url, :raw_text, :concert_type)
+                        :country, :event_date, :source, :source_url, :raw_text, :concert_type, :price)
             """, concert)
             await db.commit()
             return True
         except aiosqlite.IntegrityError:
             return False
+
+async def delete_past_concerts(user_id: str):
+    """Remove concerts that have already happened."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("""
+            DELETE FROM detected_concerts
+            WHERE user_id = ?
+            AND event_date != ''
+            AND event_date IS NOT NULL
+            AND source != 'news'
+            AND DATE(event_date) < DATE('now')
+        """, (user_id,))
+        await db.commit()
 
 async def delete_duplicate_concerts(user_id: str):
     """Remove duplicate concerts — keep newest, delete older dupes."""

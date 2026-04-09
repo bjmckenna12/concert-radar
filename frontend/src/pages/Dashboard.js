@@ -103,8 +103,10 @@ export default function Dashboard() {
   useEffect(() => {
     if (topArtists.length && concerts.length) {
       const topIds = new Set(topArtists.map(a => a.id));
-      const filtered = concerts.filter(c => topIds.has(c.artist_id));
-      setTopArtistConcerts(filtered.slice(0, 5));
+      // Show concerts from top 20 artists, prioritised first
+      const topConcerts = concerts.filter(c => topIds.has(c.artist_id));
+      const otherConcerts = concerts.filter(c => !topIds.has(c.artist_id));
+      setTopArtistConcerts(topConcerts.slice(0, 8));
     }
   }, [topArtists, concerts]);
 
