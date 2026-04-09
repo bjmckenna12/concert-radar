@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
+import { DataProvider } from './hooks/useData';
 import Landing from './pages/Landing';
 import Dashboard from './pages/Dashboard';
 import Concerts from './pages/Concerts';
@@ -29,21 +30,29 @@ function LoadingScreen() {
   );
 }
 
+function AppRoutes() {
+  return (
+    <Routes>
+      <Route path="/" element={<Landing />} />
+      <Route path="/dashboard" element={<PrivateRoute><Layout><Dashboard /></Layout></PrivateRoute>} />
+      <Route path="/concerts" element={<PrivateRoute><Layout><Concerts /></Layout></PrivateRoute>} />
+      <Route path="/map" element={<PrivateRoute><Layout><MapView /></Layout></PrivateRoute>} />
+      <Route path="/artists" element={<PrivateRoute><Layout><Artists /></Layout></PrivateRoute>} />
+      <Route path="/stats" element={<PrivateRoute><Layout><Stats /></Layout></PrivateRoute>} />
+      <Route path="/friends" element={<PrivateRoute><Layout><Friends /></Layout></PrivateRoute>} />
+      <Route path="/settings" element={<PrivateRoute><Layout><Settings /></Layout></PrivateRoute>} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}
+
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/dashboard" element={<PrivateRoute><Layout><Dashboard /></Layout></PrivateRoute>} />
-          <Route path="/concerts" element={<PrivateRoute><Layout><Concerts /></Layout></PrivateRoute>} />
-          <Route path="/map" element={<PrivateRoute><Layout><MapView /></Layout></PrivateRoute>} />
-          <Route path="/artists" element={<PrivateRoute><Layout><Artists /></Layout></PrivateRoute>} />
-          <Route path="/stats" element={<PrivateRoute><Layout><Stats /></Layout></PrivateRoute>} />
-          <Route path="/friends" element={<PrivateRoute><Layout><Friends /></Layout></PrivateRoute>} />
-          <Route path="/settings" element={<PrivateRoute><Layout><Settings /></Layout></PrivateRoute>} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <DataProvider>
+          <AppRoutes />
+        </DataProvider>
       </BrowserRouter>
     </AuthProvider>
   );

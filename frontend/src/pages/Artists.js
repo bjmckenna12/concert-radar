@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useData } from '../hooks/useData';
 import api from '../utils/api';
 
 export default function Artists() {

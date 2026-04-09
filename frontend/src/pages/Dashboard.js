@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { useData } from '../hooks/useData';
 import api from '../utils/api';
 
 
@@ -107,12 +108,9 @@ function Spinner() {
 
 export default function Dashboard() {
   const { user, refreshUser } = useAuth();
-  const [concerts, setConcerts] = useState([]);
-  const [topArtists, setTopArtists] = useState([]);
-  const [artists, setArtists] = useState({ total: 0 });
+  const { concerts, artists, topArtists, loading, refresh } = useData();
   const [scanning, setScanning] = useState(false);
   const [scanMsg, setScanMsg] = useState('');
-  const [loading, setLoading] = useState(true);
   const [mobileTab, setMobileTab] = useState('announced');
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
@@ -122,13 +120,7 @@ export default function Dashboard() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  useEffect(() => {
-    Promise.all([
-      api.listConcerts(200).then(d => setConcerts(d?.concerts || [])),
-      api.listArtists().then(d => setArtists(d || { total: 0 })),
-      api.getTopArtists(20).then(d => setTopArtists(d?.artists || [])).catch(() => {}),
-    ]).finally(() => setLoading(false));
-  }, []);
+
 
   // Filter to top 20 artists' concerts for dashboard, prioritised first
   const topArtistIds = new Set(topArtists.map(a => a.id));
@@ -160,8 +152,7 @@ export default function Dashboard() {
     try {
       const res = await api.syncArtists();
       setScanMsg(`✓ Synced ${res.synced} artists`);
-      const d = await api.listArtists();
-      setArtists(d || { total: 0 });
+      await refresh();
       refreshUser();
     } catch (e) { setScanMsg('Sync failed: ' + e.message); }
     finally { setScanning(false); }
@@ -173,8 +164,7 @@ export default function Dashboard() {
       await api.triggerScan();
       setScanMsg('Scan running — check back in a few minutes!');
       setTimeout(async () => {
-        const d = await api.listConcerts(200);
-        setConcerts(d?.concerts || []);
+        await refresh();
         setScanMsg('');
       }, 20000);
     } catch (e) { setScanMsg('Scan failed: ' + e.message); setScanning(false); }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useData } from '../hooks/useData';
 import api from '../utils/api';
 
 const CITY_COORDS = {
@@ -25,14 +26,11 @@ function getCoords(city) {
 }
 
 export default function MapView() {
-  const [concerts, setConcerts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { concerts, loading } = useData();
   const [MapComponents, setMapComponents] = useState(null);
   const [selectedCity, setSelectedCity] = useState(null);
 
-  useEffect(() => {
-    api.listConcerts(200).then(d => setConcerts(d?.concerts || [])).finally(() => setLoading(false));
-  }, []);
+
 
   useEffect(() => {
     import('react-leaflet').then(rl => {

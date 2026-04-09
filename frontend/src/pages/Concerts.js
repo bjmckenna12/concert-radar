@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useData } from '../hooks/useData';
 import api from '../utils/api';
 
 const TYPE_CONFIG = {
@@ -10,15 +11,10 @@ const TYPE_CONFIG = {
 const SOURCE_LABELS = { website: '🌐 Website', news: '📰 News', twitter: '🐦 Twitter', mailing_list: '📧 Email' };
 
 export default function Concerts() {
-  const [concerts, setConcerts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { concerts, loading } = useData();
   const [filter, setFilter] = useState('ticket_sale');
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState('date');
-
-  useEffect(() => {
-    api.listConcerts(200).then(d => setConcerts(d?.concerts || [])).finally(() => setLoading(false));
-  }, []);
 
   const filtered = concerts
     .filter(c => {
