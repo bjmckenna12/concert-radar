@@ -40,8 +40,10 @@ export default function Layout({ children }) {
         <NavLink to="/concerts" style={({ isActive }) => navLinkStyle(isActive)}>Concerts</NavLink>
         <NavLink to="/map" style={({ isActive }) => navLinkStyle(isActive)}>Map</NavLink>
         <NavLink to="/artists" style={({ isActive }) => navLinkStyle(isActive)}>Artists</NavLink>
+        <NavLink to="/activity" style={({ isActive }) => navLinkStyle(isActive)}>Activity</NavLink>
         <NavLink to="/stats" style={({ isActive }) => navLinkStyle(isActive)}>My Stats</NavLink>
         <NavLink to="/friends" style={({ isActive }) => navLinkStyle(isActive)}>Friends</NavLink>
+        <NavLink to="/activity" style={({ isActive }) => navLinkStyle(isActive)}>Activity</NavLink>
         <NavLink to="/settings" style={({ isActive }) => navLinkStyle(isActive)}>Settings</NavLink>
 
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>

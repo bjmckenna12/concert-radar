@@ -9,6 +9,8 @@ import MapView from './pages/MapView';
 import Artists from './pages/Artists';
 import Stats from './pages/Stats';
 import Friends from './pages/Friends';
+import Activity from './pages/Activity';
+import Activity from './pages/Activity';
 import Layout from './components/Layout';
 
 function PrivateRoute({ children }) {
