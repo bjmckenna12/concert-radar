@@ -7,7 +7,12 @@ from database import (
     get_all_users, get_user_artists, upsert_artists,
     update_artist_tour_page, save_concert, delete_duplicate_concerts,
     delete_past_concerts, reclassify_stale_presales,
-    get_unnotified_concerts, mark_concerts_notified
+    get_unnotified_concerts, mark_concerts_notified,
+    log_activity, check_and_award_badges
+)
+from database_saves import (
+    get_saved_concerts_with_status_change, update_saved_concert_known_type,
+    log_activity, award_badge, get_gamification_stats
 )
 from scraper import search_google_news, search_twitter_public
 from ticketmaster import search_artist_events
@@ -96,6 +101,41 @@ async def run_user_monitoring(user: dict):
     await delete_duplicate_concerts(user_id)
     await delete_past_concerts(user_id)
     await reclassify_stale_presales(user_id)
+
+    # Check for status changes on saved concerts and log activity
+    try:
+        changed = await get_saved_concerts_with_status_change(user_id)
+        for c in changed:
+            old_type = c.get("last_known_type", "")
+            new_type = c.get("concert_type", "")
+            artist = c.get("artist_name", "")
+            type_labels = {
+                "tour_announcement": "📢 Announced",
+                "presale": "🔑 Presale",
+                "ticket_sale": "🎟️ On Sale",
+            }
+            await log_activity(
+                user_id, "status_changed",
+                f"{artist} — {type_labels.get(new_type, new_type)}",
+                f"Status changed from {type_labels.get(old_type, old_type)} to {type_labels.get(new_type, new_type)}",
+                meta={"concert_id": c["id"], "old_type": old_type, "new_type": new_type}
+            )
+            await update_saved_concert_known_type(user_id, c["id"], new_type)
+
+        # Award early bird badge if warranted
+        stats = await get_gamification_stats(user_id)
+        if stats["early_detections"] >= 5:
+            await award_badge(user_id, "early_bird", "Early Bird",
+                            "🐦", "Discovered 5+ shows before they hit Ticketmaster")
+        if stats["going_count"] >= 3:
+            await award_badge(user_id, "concert_goer", "Concert Goer",
+                            "🎸", "Marked 3+ concerts as Going")
+        if stats["cities_count"] >= 3:
+            await award_badge(user_id, "road_tripper", "Road Tripper",
+                            "🗺️", "Saved concerts in 3+ different cities")
+    except Exception as e:
+        logger.debug(f"Activity logging error: {e}")
+
     logger.info(f"=== SCAN DONE: {total_new} new concerts ===")
 
     if user.get("alert_email"):

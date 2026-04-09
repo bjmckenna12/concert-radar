@@ -1,13 +1,12 @@
-from fastapi import FastAPI, Request, BackgroundTasks
+from fastapi import FastAPI, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
 import uvicorn
 from contextlib import asynccontextmanager
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 import logging
 
-from routers import auth, artists, concerts, settings, friends, stats
+from routers import auth, artists, concerts, settings, friends, stats, saved, activity
 from database import init_db
 from monitor import run_monitoring_cycle
 
@@ -25,7 +24,7 @@ async def lifespan(app: FastAPI):
     yield
     scheduler.shutdown()
 
-app = FastAPI(title="Concert Radar API", version="2.0.0", lifespan=lifespan)
+app = FastAPI(title="Concert Radar API", version="3.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -39,10 +38,12 @@ app.include_router(concerts.router, prefix="/concerts", tags=["concerts"])
 app.include_router(settings.router, prefix="/settings", tags=["settings"])
 app.include_router(friends.router, prefix="/friends", tags=["friends"])
 app.include_router(stats.router, prefix="/stats", tags=["stats"])
+app.include_router(saved.router, prefix="/saved", tags=["saved"])
+app.include_router(activity.router, prefix="/activity", tags=["activity"])
 
 @app.get("/")
 async def root():
-    return {"status": "Concert Radar API v2"}
+    return {"status": "Concert Radar API v3"}
 
 @app.get("/health")
 async def health():
