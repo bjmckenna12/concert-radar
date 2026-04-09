@@ -10,7 +10,7 @@ from database import (
 )
 from scraper import search_google_news, search_twitter_public
 from ticketmaster import search_artist_events
-from classifier import classify_concert, format_artist_name, is_tribute_act
+from classifier import classify_concert
 from notifier import send_alert_email
 from routers.auth import refresh_spotify_token
 from routers.artists import fetch_all_followed_artists
@@ -127,21 +127,10 @@ async def scan_artist(user: dict, artist: dict, locations: list) -> int:
                 logger.debug(f"  Skipping cancelled event: {item.get('event_title', '')[:60]}")
                 continue
             # Skip cancelled events entirely
-            if concert_type == "cancelled":
-                logger.debug(f"  Skipping cancelled event: {item.get('event_title','')}")
-                continue
-            # Skip cancelled events entirely
-            if concert_type == "cancelled":
-                logger.debug(f"  Skipping cancelled event for {artist_name}")
-                continue
-            # Format tribute acts clearly
-            display_name = format_artist_name(
-                artist_name, item.get("event_title", "")
-            )
             concert = {
                 "user_id": user_id,
                 "artist_id": artist_spotify_id,
-                "artist_name": display_name,
+                "artist_name": artist_name,
                 "event_title": item.get("event_title", ""),
                 "venue": item.get("venue", ""),
                 "city": item.get("city", ""),
