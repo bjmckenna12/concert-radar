@@ -39,6 +39,7 @@ function AppRoutes() {
       <Route path="/concerts" element={<PrivateRoute><Layout><Concerts /></Layout></PrivateRoute>} />
       <Route path="/map" element={<PrivateRoute><Layout><MapView /></Layout></PrivateRoute>} />
       <Route path="/artists" element={<PrivateRoute><Layout><Artists /></Layout></PrivateRoute>} />
+      <Route path="/activity" element={<PrivateRoute><Layout><Activity /></Layout></PrivateRoute>} />
       <Route path="/stats" element={<PrivateRoute><Layout><Stats /></Layout></PrivateRoute>} />
       <Route path="/friends" element={<PrivateRoute><Layout><Friends /></Layout></PrivateRoute>} />
       <Route path="/settings" element={<PrivateRoute><Layout><Settings /></Layout></PrivateRoute>} />
