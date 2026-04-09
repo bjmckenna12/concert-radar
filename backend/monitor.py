@@ -9,7 +9,7 @@ from database import (
     get_unnotified_concerts, mark_concerts_notified
 )
 from scraper import (
-    search_google_news, search_songkick,
+    search_google_news,
     find_tour_page_url, scrape_tour_page, extract_concerts_from_text,
     search_twitter_public
 )
