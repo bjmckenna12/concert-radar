@@ -1,114 +1,153 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import api from '../utils/api';
 
 const TYPE_CONFIG = {
   presale: { label: '🔑 Presale', cls: 'badge-presale' },
-  ticket_sale: { label: '🎟️ Tickets On Sale', cls: 'badge-ticket' },
+  ticket_sale: { label: '🎟️ On Sale', cls: 'badge-ticket' },
   tour_announcement: { label: '📢 Announced', cls: 'badge-announce' },
   unknown: { label: '📍 Concert', cls: 'badge-unknown' },
 };
 
-function ConcertCard({ concert: c }) {
+function ConcertMiniCard({ concert: c }) {
   const dateObj = c.event_date ? new Date(c.event_date) : null;
   const isValid = dateObj && !isNaN(dateObj.getTime());
-  const type = TYPE_CONFIG[c.concert_type] || TYPE_CONFIG.unknown;
 
   return (
-    <div className="concert-card">
-      <div style={{ background: 'linear-gradient(135deg, var(--surface3), var(--pink-light))', borderRadius: 12, minWidth: 52, textAlign: 'center', padding: '10px 8px', flexShrink: 0 }}>
-        <div style={{ fontSize: 10, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>
-          {isValid ? dateObj.toLocaleString('en-AU', { month: 'short' }) : '—'}
-        </div>
-        <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--accent)', lineHeight: 1.2 }}>
-          {isValid ? dateObj.getDate() : '?'}
-        </div>
+    <div style={{
+      background: 'white', borderRadius: 14, border: '1.5px solid var(--border)',
+      padding: '12px 14px', marginBottom: 8, transition: 'all 0.2s',
+      boxShadow: '0 2px 8px rgba(124,58,237,0.05)',
+    }}
+      onMouseOver={e => e.currentTarget.style.transform = 'translateY(-1px)'}
+      onMouseOut={e => e.currentTarget.style.transform = 'none'}
+    >
+      <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 3, lineHeight: 1.3 }}>
+        {c.artist_name}
       </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{c.artist_name}</div>
-        <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 8 }}>
-          {[c.venue, c.city].filter(Boolean).join(' · ') || 'Location TBC'}
-        </div>
-        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-          <span className={`type-badge ${type.cls}`}>{type.label}</span>
-          {!c.notified && <span className="type-badge badge-new">✨ New</span>}
-          {c.price && <span className="type-badge" style={{background:'#d1fae5',color:'#065f46',border:'1.5px solid #34d399'}}>💰 {c.price}</span>}
-        </div>
+      <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6 }}>
+        {[c.venue, c.city, c.country].filter(Boolean).join(' · ') || 'Location TBC'}
       </div>
-      {c.source_url && (
-        <a href={c.source_url} target="_blank" rel="noopener noreferrer" className="pill-btn pill-btn-purple" style={{ padding: '7px 14px', fontSize: 11, textDecoration: 'none', flexShrink: 0 }}>
-          Tickets ↗
+      <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 8 }}>
+        {isValid
+          ? dateObj.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
+          : 'Date TBC'}
+      </div>
+      {c.source_url ? (
+        <a href={c.source_url} target="_blank" rel="noopener noreferrer"
+          className="pill-btn pill-btn-purple"
+          style={{ padding: '5px 12px', fontSize: 11, textDecoration: 'none', display: 'inline-flex' }}>
+          {c.concert_type === 'presale' ? '🔑 Get presale' :
+           c.concert_type === 'ticket_sale' ? '🎟️ Buy tickets' : '🔗 View'}
+          &nbsp;↗
         </a>
+      ) : (
+        <span style={{ fontSize: 11, color: 'var(--muted)', fontStyle: 'italic' }}>No link yet</span>
       )}
     </div>
   );
 }
 
-function ShareCard({ concert: c, user }) {
-  const cardRef = useRef(null);
-  const dateObj = c.event_date ? new Date(c.event_date) : null;
-  const isValid = dateObj && !isNaN(dateObj.getTime());
-
-  const handleCopy = () => {
-    const text = `🎸 ${c.artist_name} @ ${c.city || 'TBC'} — ${isValid ? dateObj.toLocaleDateString('en-AU') : 'Date TBC'}\nFound on Concert Radar 🎟️`;
-    navigator.clipboard.writeText(text);
-  };
+function ConcertColumn({ title, emoji, concerts, emptyMsg, accentColor, accentBg, mobileActive, onSelect, isMobile }) {
+  const count = concerts.length;
 
   return (
-    <div ref={cardRef} style={{
-      background: 'linear-gradient(135deg, #7c3aed, #f472b6)',
-      borderRadius: 20, padding: '1.5rem', color: 'white',
-      position: 'relative', overflow: 'hidden', minHeight: 160,
+    <div style={{
+      flex: 1, minWidth: 0,
+      display: isMobile && !mobileActive ? 'none' : 'flex',
+      flexDirection: 'column',
     }}>
-      <div style={{ position: 'absolute', top: -20, right: -20, fontSize: 80, opacity: 0.15 }}>🎸</div>
-      <div style={{ fontSize: 11, fontFamily: "'Orbitron', monospace", letterSpacing: '0.15em', marginBottom: 10, opacity: 0.8 }}>CONCERT RADAR</div>
-      <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 4 }}>{c.artist_name}</div>
-      <div style={{ fontSize: 14, opacity: 0.85, marginBottom: 12 }}>
-        {c.city || 'TBC'} · {isValid ? dateObj.toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Date TBC'}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        marginBottom: 12, padding: '10px 14px',
+        background: accentBg, borderRadius: 12,
+        border: `1.5px solid ${accentColor}40`,
+        cursor: isMobile ? 'pointer' : 'default',
+      }} onClick={isMobile ? onSelect : undefined}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 18 }}>{emoji}</span>
+          <span style={{ fontWeight: 700, fontSize: 14, color: accentColor }}>{title}</span>
+        </div>
+        <span style={{
+          background: accentColor, color: 'white',
+          borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 700,
+          minWidth: 24, textAlign: 'center'
+        }}>{count}</span>
       </div>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button onClick={handleCopy} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white', padding: '6px 14px', borderRadius: 50, fontSize: 12, fontWeight: 600, cursor: 'pointer', backdropFilter: 'blur(4px)' }}>
-          📋 Copy
-        </button>
-        {c.source_url && (
-          <a href={c.source_url} target="_blank" rel="noopener noreferrer" style={{ background: 'rgba(255,255,255,0.2)', color: 'white', padding: '6px 14px', borderRadius: 50, fontSize: 12, fontWeight: 600, textDecoration: 'none', backdropFilter: 'blur(4px)' }}>
-            🎟️ Tickets
-          </a>
+
+      <div style={{ flex: 1 }}>
+        {count === 0 ? (
+          <div style={{
+            background: 'white', borderRadius: 14, border: '1.5px dashed var(--border2)',
+            padding: '1.5rem', textAlign: 'center'
+          }}>
+            <div style={{ fontSize: 24, marginBottom: 8 }}>
+              {emoji}
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--muted)' }}>{emptyMsg}</div>
+          </div>
+        ) : (
+          concerts.map(c => <ConcertMiniCard key={c.id} concert={c} />)
         )}
       </div>
     </div>
   );
 }
 
+function StatCard({ label, value, emoji, color, bg }) {
+  return (
+    <div className="stat-card" style={{ flex: 1, minWidth: 120, background: bg }}>
+      <div style={{ fontSize: 22, marginBottom: 6 }}>{emoji}</div>
+      <div style={{ fontSize: 26, fontWeight: 800, color, lineHeight: 1 }}>{value}</div>
+      <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 4 }}>{label}</div>
+    </div>
+  );
+}
+
+function Spinner() {
+  return <div style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />;
+}
+
 export default function Dashboard() {
   const { user, refreshUser } = useAuth();
   const [concerts, setConcerts] = useState([]);
-  const [topArtistConcerts, setTopArtistConcerts] = useState([]);
   const [topArtists, setTopArtists] = useState([]);
   const [artists, setArtists] = useState({ total: 0 });
   const [scanning, setScanning] = useState(false);
   const [scanMsg, setScanMsg] = useState('');
   const [loading, setLoading] = useState(true);
-  
+  const [mobileTab, setMobileTab] = useState('announced');
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   useEffect(() => {
-    Promise.all([
-      api.listConcerts(50).then(d => setConcerts(d?.concerts || [])),
-      api.listArtists().then(d => setArtists(d || { total: 0 })),
-      api.getTopArtists(10).then(d => setTopArtists(d?.artists || [])).catch(() => []),
-    ]).finally(() => setLoading(false));
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   useEffect(() => {
-    if (topArtists.length && concerts.length) {
-      const topIds = new Set(topArtists.map(a => a.id));
-      // Show concerts from top 20 artists, prioritised first
-      const topConcerts = concerts.filter(c => topIds.has(c.artist_id));
-      const otherConcerts = concerts.filter(c => !topIds.has(c.artist_id));
-      setTopArtistConcerts(topConcerts.slice(0, 8));
-    }
-  }, [topArtists, concerts]);
+    Promise.all([
+      api.listConcerts(200).then(d => setConcerts(d?.concerts || [])),
+      api.listArtists().then(d => setArtists(d || { total: 0 })),
+      api.getTopArtists(20).then(d => setTopArtists(d?.artists || [])).catch(() => {}),
+    ]).finally(() => setLoading(false));
+  }, []);
+
+  // Filter to top 20 artists' concerts for dashboard
+  const topArtistIds = new Set(topArtists.map(a => a.id));
+  const dashboardConcerts = topArtists.length > 0
+    ? [...concerts.filter(c => topArtistIds.has(c.artist_id)), ...concerts.filter(c => !topArtistIds.has(c.artist_id))]
+    : concerts;
+
+  // Split into 3 columns
+  const announced = dashboardConcerts.filter(c => c.concert_type === 'tour_announcement');
+  const presales = dashboardConcerts.filter(c => c.concert_type === 'presale');
+  const onSale = dashboardConcerts.filter(c => c.concert_type === 'ticket_sale');
+  const unknown = dashboardConcerts.filter(c => c.concert_type === 'unknown' || !c.concert_type);
+
+  // Merge unknown into announced as a fallback
+  const announcedAll = [...announced, ...unknown];
 
   const handleSync = async () => {
     setScanning(true); setScanMsg('Syncing your Spotify artists...');
@@ -123,35 +162,37 @@ export default function Dashboard() {
   };
 
   const handleScan = async () => {
-    setScanning(true); setScanMsg('Scanning all sources for new shows...');
+    setScanning(true); setScanMsg('Scanning for new shows...');
     try {
       await api.triggerScan();
-      setScanMsg('Scan running in background — check back in a few minutes!');
+      setScanMsg('Scan running — check back in a few minutes!');
       setTimeout(async () => {
-        const d = await api.listConcerts(50);
+        const d = await api.listConcerts(200);
         setConcerts(d?.concerts || []);
         setScanMsg('');
-      }, 15000);
+      }, 20000);
     } catch (e) { setScanMsg('Scan failed: ' + e.message); setScanning(false); }
   };
 
-  const presales = concerts.filter(c => c.concert_type === 'presale' && !c.notified);
-  const ticketSales = concerts.filter(c => c.concert_type === 'ticket_sale');
-  const recentAll = concerts.slice(0, 6);
+  const columns = [
+    { key: 'announced', title: 'Announced', emoji: '📢', concerts: announcedAll, emptyMsg: 'No new announcements yet', accentColor: '#1d4ed8', accentBg: '#dbeafe' },
+    { key: 'presale', title: 'Presale Live', emoji: '🔑', concerts: presales, emptyMsg: 'No active presales right now', accentColor: '#92400e', accentBg: '#fef3c7' },
+    { key: 'onsale', title: 'On Sale', emoji: '🎟️', concerts: onSale, emptyMsg: 'No tickets on sale yet', accentColor: '#065f46', accentBg: '#d1fae5' },
+  ];
 
   return (
     <div style={{ animation: 'fadeIn 0.4s ease' }}>
       {/* Header */}
-      <div style={{ marginBottom: 28 }}>
+      <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontFamily: "'Orbitron', monospace", fontSize: 'clamp(1.2rem, 4vw, 1.8rem)', fontWeight: 900, letterSpacing: '0.05em', marginBottom: 4 }}>
           HEY {user?.display_name?.toUpperCase()?.split(' ')[0]} 👋
         </h1>
-        <p style={{ color: 'var(--text2)', fontSize: 14 }}>Here's what's happening with your concert radar.</p>
+        <p style={{ color: 'var(--text2)', fontSize: 14 }}>Your concert radar is active.</p>
       </div>
 
       {/* Setup warning */}
       {!user?.alert_email && (
-        <div style={{ background: '#fef3c7', border: '1.5px solid #fbbf24', borderRadius: 24, padding: '14px 18px', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ background: '#fef3c7', border: '1.5px solid #fbbf24', borderRadius: 16, padding: '14px 18px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ fontSize: 22 }}>⚠️</span>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 700, fontSize: 14, color: '#92400e', marginBottom: 2 }}>Set up your alert email</div>
@@ -161,90 +202,100 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Presale alert banner */}
-      {presales.length > 0 && (
-        <div style={{ background: 'linear-gradient(135deg, #fef3c7, #fce7f3)', border: '1.5px solid #fbbf24', borderRadius: 24, padding: '16px 20px', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{ fontSize: 28 }}>🔑</span>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, fontSize: 14, color: '#92400e', marginBottom: 2 }}>{presales.length} presale{presales.length > 1 ? 's' : ''} detected!</div>
-            <div style={{ fontSize: 13, color: '#92400e' }}>{presales.map(p => p.artist_name).join(', ')}</div>
-          </div>
-          <Link to="/concerts" className="pill-btn pill-btn-yellow" style={{ textDecoration: 'none', padding: '8px 16px', fontSize: 12 }}>View →</Link>
-        </div>
-      )}
-
-      {/* Stats row */}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
-        {[
-          { label: 'Artists monitored', value: loading ? '—' : artists.total, emoji: '🎵', color: 'var(--accent)', bg: 'var(--surface3)' },
-          { label: 'Concerts found', value: loading ? '—' : concerts.length, emoji: '🎸', color: 'var(--pink)', bg: '#fce7f3' },
-          { label: 'Ticket sales', value: loading ? '—' : ticketSales.length, emoji: '🎟️', color: 'var(--mint)', bg: 'var(--mint-light)' },
-        ].map(s => (
-          <div key={s.label} className="stat-card" style={{ flex: 1, minWidth: 140, background: s.bg }}>
-            <div style={{ fontSize: 24, marginBottom: 8 }}>{s.emoji}</div>
-            <div style={{ fontSize: 28, fontWeight: 800, color: s.color, lineHeight: 1 }}>{s.value}</div>
-            <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 4 }}>{s.label}</div>
-          </div>
-        ))}
+      {/* Stats */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+        <StatCard label="Artists monitored" value={loading ? '—' : artists.total} emoji="🎵" color="var(--accent)" bg="var(--surface3)" />
+        <StatCard label="Announced" value={loading ? '—' : announcedAll.length} emoji="📢" color="#1d4ed8" bg="#dbeafe" />
+        <StatCard label="Presales live" value={loading ? '—' : presales.length} emoji="🔑" color="#92400e" bg="#fef3c7" />
+        <StatCard label="On sale now" value={loading ? '—' : onSale.length} emoji="🎟️" color="#065f46" bg="#d1fae5" />
       </div>
 
       {/* Action buttons */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: scanMsg ? 16 : 28, flexWrap: 'wrap' }}>
-        <button onClick={handleSync} disabled={scanning} className="pill-btn pill-btn-outline">
-          {scanning ? '...' : '🎵'} Sync artists
+      <div style={{ display: 'flex', gap: 10, marginBottom: scanMsg ? 14 : 24, flexWrap: 'wrap' }}>
+        <button onClick={handleSync} disabled={scanning} className="pill-btn pill-btn-outline" style={{ border: '1.5px solid var(--accent)' }}>
+          {scanning ? <Spinner /> : '🎵'} Sync artists
         </button>
         <button onClick={handleScan} disabled={scanning} className="pill-btn pill-btn-purple">
-          {scanning ? '...' : '📡'} Scan for shows
+          {scanning ? <Spinner /> : '📡'} Scan for shows
         </button>
       </div>
 
       {scanMsg && (
-        <div style={{ background: '#ede9fe', border: '1.5px solid var(--accent-light)', borderRadius: 16, padding: '10px 16px', marginBottom: 24, fontSize: 13, color: 'var(--accent)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ background: '#ede9fe', border: '1.5px solid var(--accent-light)', borderRadius: 12, padding: '10px 16px', marginBottom: 20, fontSize: 13, color: 'var(--accent)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)', animation: 'pulse 1s infinite' }} />
           {scanMsg}
         </div>
       )}
 
-      {/* Top Artists Concerts */}
-      {topArtistConcerts.length > 0 && (
-        <div style={{ marginBottom: 32 }}>
-          <div className="section-label">🔥 Your top artists have shows</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {topArtistConcerts.map(c => <ConcertCard key={c.id} concert={c} />)}
+      {/* Top artists callout */}
+      {topArtists.length > 0 && (
+        <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <div style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 600 }}>
+            🔥 Showing concerts for your top artists first:
+          </div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {topArtists.slice(0, 8).map(a => (
+              <span key={a.id} style={{ background: 'var(--surface3)', color: 'var(--accent)', padding: '3px 10px', borderRadius: 50, fontSize: 11, fontWeight: 600, border: '1px solid var(--border2)' }}>
+                {a.name}
+              </span>
+            ))}
+            {topArtists.length > 8 && (
+              <span style={{ color: 'var(--muted)', fontSize: 11, padding: '3px 6px' }}>+{topArtists.length - 8} more</span>
+            )}
           </div>
         </div>
       )}
 
-      {/* Share cards for ticket sales */}
-      {ticketSales.length > 0 && (
-        <div style={{ marginBottom: 32 }}>
-          <div className="section-label">🎟️ Share these shows</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 }}>
-            {ticketSales.slice(0, 3).map(c => <ShareCard key={c.id} concert={c} user={user} />)}
-          </div>
+      {/* Mobile tab switcher */}
+      {isMobile && (
+        <div style={{ display: 'flex', gap: 4, marginBottom: 16, background: 'var(--surface2)', borderRadius: 50, padding: 4 }}>
+          {columns.map(col => (
+            <button key={col.key} onClick={() => setMobileTab(col.key)} style={{
+              flex: 1, padding: '8px 4px', borderRadius: 50, border: 'none', cursor: 'pointer',
+              background: mobileTab === col.key ? 'white' : 'transparent',
+              color: mobileTab === col.key ? col.accentColor : 'var(--muted)',
+              fontWeight: 700, fontSize: 12, transition: 'all 0.2s',
+              boxShadow: mobileTab === col.key ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
+              fontFamily: "'Space Grotesk', sans-serif",
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+            }}>
+              {col.emoji} {col.title}
+              <span style={{
+                background: col.accentColor, color: 'white',
+                borderRadius: 20, padding: '1px 6px', fontSize: 10, fontWeight: 700
+              }}>{col.concerts.length}</span>
+            </button>
+          ))}
         </div>
       )}
 
-      {/* Recent alerts */}
-      <div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <div className="section-label" style={{ marginBottom: 0, flex: 1 }}>Recent alerts</div>
-          <Link to="/concerts" style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 600, marginLeft: 16 }}>View all →</Link>
+      {/* Three columns */}
+      {loading ? (
+        <div style={{ color: 'var(--muted)', fontSize: 14, padding: '2rem 0', textAlign: 'center' }}>Loading your concerts...</div>
+      ) : (
+        <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
+          {columns.map(col => (
+            <ConcertColumn
+              key={col.key}
+              title={col.title}
+              emoji={col.emoji}
+              concerts={col.concerts}
+              emptyMsg={col.emptyMsg}
+              accentColor={col.accentColor}
+              accentBg={col.accentBg}
+              isMobile={isMobile}
+              mobileActive={mobileTab === col.key}
+              onSelect={() => setMobileTab(col.key)}
+            />
+          ))}
         </div>
+      )}
 
-        {loading ? (
-          <div style={{ color: 'var(--muted)', fontSize: 14, padding: '2rem 0' }}>Loading...</div>
-        ) : recentAll.length === 0 ? (
-          <div className="card" style={{ padding: '2.5rem', textAlign: 'center' }}>
-            <div style={{ fontSize: 48, marginBottom: 12, animation: 'float 3s ease-in-out infinite' }}>🎸</div>
-            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>No concerts yet</div>
-            <div style={{ fontSize: 13, color: 'var(--text2)' }}>Hit "Scan for shows" to check your artists now.</div>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {recentAll.map(c => <ConcertCard key={c.id} concert={c} />)}
-          </div>
-        )}
+      {/* Link to full list */}
+      <div style={{ marginTop: 20, textAlign: 'center' }}>
+        <Link to="/concerts" style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 600 }}>
+          View all concerts & filter by type →
+        </Link>
       </div>
     </div>
   );
