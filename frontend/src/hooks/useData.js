@@ -37,7 +37,7 @@ export function DataProvider({ children }) {
 
   useEffect(() => {
     if (user) fetchAll();
-  }, [user]);
+  }, [user, fetchAll]);
 
   const refresh = () => fetchAll(true);
 

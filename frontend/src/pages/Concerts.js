@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useData } from '../hooks/useData';
-import api from '../utils/api';
 
 const TYPE_CONFIG = {
   presale: { label: '🔑 Presale', cls: 'badge-presale' },

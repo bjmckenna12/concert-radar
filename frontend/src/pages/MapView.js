@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useData } from '../hooks/useData';
-import api from '../utils/api';
 
 const CITY_COORDS = {
   'Hobart': [-42.8821, 147.3272], 'Melbourne': [-37.8136, 144.9631],
