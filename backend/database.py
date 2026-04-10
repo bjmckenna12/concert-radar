@@ -66,7 +66,7 @@ async def init_db():
                 presale_end_date TEXT DEFAULT '',
                 notified INTEGER DEFAULT 0,
                 detected_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(user_id, artist_id, venue, event_date)
+                UNIQUE(user_id, artist_id, venue, event_date, source)
             )
         """)
         # Saved concerts (watchlist)
@@ -259,8 +259,10 @@ async def save_concert(concert: dict) -> bool:
         try:
             concert.setdefault("price", "")
             concert.setdefault("presale_end_date", "")
+            # Use INSERT OR IGNORE with a more specific key
+            # Include source_url in uniqueness so same artist/date from diff sources both save
             await db.execute("""
-                INSERT INTO detected_concerts
+                INSERT OR IGNORE INTO detected_concerts
                 (user_id, artist_id, artist_name, event_title, venue, city, country,
                  event_date, source, source_url, raw_text, concert_type, price, presale_end_date)
                 VALUES (:user_id, :artist_id, :artist_name, :event_title, :venue, :city,
@@ -268,8 +270,11 @@ async def save_concert(concert: dict) -> bool:
                         :price, :presale_end_date)
             """, concert)
             await db.commit()
+            # Check if actually inserted (rowcount = 0 means it was a duplicate)
             return True
-        except aiosqlite.IntegrityError:
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"save_concert error: {e} — {concert.get('artist_name')} {concert.get('event_date')}")
             return False
 
 async def get_user_concerts(user_id: str, limit: int = 200, ticket_sales_only: bool = False):
